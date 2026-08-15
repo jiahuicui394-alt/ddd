@@ -294,6 +294,13 @@ export function deriveHbtiProfile(
     "dna-compact-near-station": { commute: 1.4, station: 1.4, price: -0.8, housing: -0.5 },
     "dna-large-value-room": { price: 1.3, housing: 1.2, station: -0.9, commute: -0.5 },
     "dna-new-lifestyle-home": { housing: 1.2, lifestyle: 1.4, price: -0.9, commute: -0.5 },
+    "dna-budget-long-commute": { price: 1.5, housing: 0.4, commute: -1.2, lifestyle: -0.4 },
+    "dna-one-minute-old-studio": { commute: 1.2, station: 1.5, housing: -1.2, price: -0.4 },
+    "dna-large-new-far-station": { housing: 1.6, station: -1.4, price: -0.8 },
+    "dna-city-life-compact": { lifestyle: 1.6, station: 0.6, price: -0.8, housing: -0.4 },
+    "dna-direct-route-value": { price: 1.3, commute: 0.7, station: -0.5, lifestyle: -0.3 },
+    "dna-balanced-suburban": { price: 0.5, commute: 0.5, housing: 0.5, station: 0.4 },
+    "dna-premium-all-rounder": { commute: 0.8, housing: 1.2, station: 0.8, lifestyle: 0.7, price: -1.5 },
   };
   for (const response of feedback) {
     for (const [key, effect] of Object.entries(swipeEffects[response.propertyId] ?? {})) {

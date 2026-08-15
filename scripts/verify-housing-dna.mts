@@ -84,6 +84,9 @@ const calibrationFeedback = HOUSING_CALIBRATION_PROPERTIES.map((property, index)
   reaction: (index === 1 ? -1 : 1) as -1 | 1,
   reasons: index === 0 ? ["通勤时间短", "离车站近"] : index === 1 ? ["离车站太远"] : ["房子更新"],
 }));
+if (HOUSING_CALIBRATION_PROPERTIES.length !== 10) {
+  throw new Error("Swipe calibration must contain exactly 10 cards.");
+}
 const combinedProfile = deriveHbtiProfile(
   answers,
   HOUSING_CALIBRATION_PROPERTIES,
