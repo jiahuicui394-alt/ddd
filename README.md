@@ -1,5 +1,11 @@
 # Tokyo Commute Finder
 
+Online demo: <https://jiahuicui394-alt.github.io/ddd/>
+
+The public site is a static Next.js export hosted by GitHub Pages. Real TravelTime
+and Supabase requests are handled by a separate Vercel backend so API credentials
+never enter the browser bundle or GitHub Pages artifact.
+
 这是一个输入目的地和最长通勤时间，返回目的地附近车站、可达车站和匹配租房的 Next.js Demo。
 
 ## 搜索流程

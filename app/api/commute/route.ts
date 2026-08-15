@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { corsPreflight, withCors } from "@/lib/api-cors";
 import { hasExternalProvider, searchExternalProvider } from "@/lib/commute-provider";
 import { findMatchingProperties } from "@/lib/property-search";
+
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
+}
 
 export async function POST(request: Request) {
   try {
@@ -33,9 +38,12 @@ export async function POST(request: Request) {
         : undefined;
 
     if (!hasExternalProvider()) {
-      return NextResponse.json(
-        { error: "TravelTime 尚未配置。请先在 .env.local 中填写 TRAVELTIME_API_KEY。" },
-        { status: 503 },
+      return withCors(
+        request,
+        NextResponse.json(
+          { error: "TravelTime 尚未配置。请先在 .env.local 中填写 TRAVELTIME_API_KEY。" },
+          { status: 503 },
+        ),
       );
     }
 
@@ -50,17 +58,23 @@ export async function POST(request: Request) {
       maxMinutes,
     );
 
-    return NextResponse.json({
-      ...commuteResult,
-      reachableStations: propertyResult.recommendedStations,
-      properties: propertyResult.properties,
-      propertySource: "supabase",
-      note: commuteResult.selectedNearbyStationId
-        ? `已按所选目的地入口站重新计算 · 仅展示同线路、有房源且满足门到门预算的 ${propertyResult.recommendedStations.length} 个车站 · 已预留 ${commuteResult.commuteBufferMinutes} 分钟缓冲`
-        : `TravelTime 铁路实时计算 · 仅展示 ${propertyResult.recommendedStations.length} 个同时有房源且满足门到门预算的推荐站 · 已预留 ${commuteResult.commuteBufferMinutes} 分钟缓冲`,
-    });
+    return withCors(
+      request,
+      NextResponse.json({
+        ...commuteResult,
+        reachableStations: propertyResult.recommendedStations,
+        properties: propertyResult.properties,
+        propertySource: "supabase",
+        note: commuteResult.selectedNearbyStationId
+          ? `已按所选目的地入口站重新计算 · 仅展示同线路、有房源且满足门到门预算的 ${propertyResult.recommendedStations.length} 个车站 · 已预留 ${commuteResult.commuteBufferMinutes} 分钟缓冲`
+          : `TravelTime 铁路实时计算 · 仅展示 ${propertyResult.recommendedStations.length} 个同时有房源且满足门到门预算的推荐站 · 已预留 ${commuteResult.commuteBufferMinutes} 分钟缓冲`,
+      }),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "无法搜索通勤数据。";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withCors(
+      request,
+      NextResponse.json({ error: message }, { status: 500 }),
+    );
   }
 }

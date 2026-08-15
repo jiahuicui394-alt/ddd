@@ -14,6 +14,12 @@ import {
   getLineStationOrder,
 } from "@/lib/tokyo-line-order";
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}${path}`;
+}
+
 const initialResult: CommuteSearchResponse = {
   destination: { name: "东京大学", subtitle: "本乡校区 · 文京区", lat: 35.7126, lng: 139.7619 },
   requestedMinutes: 35,
@@ -184,7 +190,7 @@ export default function Home() {
     const timer = window.setTimeout(async () => {
       setSuggestionsLoading(true);
       try {
-        const response = await fetch(`/api/places?q=${encodeURIComponent(query)}`, {
+        const response = await fetch(apiUrl(`/api/places?q=${encodeURIComponent(query)}`), {
           signal: controller.signal,
         });
         const data = await response.json();
@@ -225,7 +231,7 @@ export default function Home() {
   }
 
   async function requestCommute(destinationStationId?: string) {
-    const response = await fetch("/api/commute", {
+    const response = await fetch(apiUrl("/api/commute"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
