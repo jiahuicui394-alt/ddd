@@ -174,21 +174,21 @@ function getWhyMatched(property: ScoredProperty, profile: PreferenceProfile, loc
       price: ["💚 你希望控制每月支出", `→ 房租与管理费合计 ¥${(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}`],
       housing: ["💚 你重视房间的舒适度", `→ ${property.layout} · ${property.areaSqm}㎡ · 築${property.buildingAgeYears}年`],
       station: ["💚 你希望轻松到达车站", `→ ${property.station.name}站步行 ${property.station.walkingMinutes} 分钟`],
-      lifestyle: ["💚 你重视周边生活", `→ 10 分钟内有 ${property.lifestyle.supermarketsWithin10Minutes ?? 0} 家超市和 ${property.lifestyle.restaurantsWithin10Minutes ?? 0} 家餐厅（Demo）`],
+      lifestyle: ["💚 你重视周边生活", `→ 10 分钟内有 ${property.lifestyle?.supermarketsWithin10Minutes ?? 0} 家超市和 ${property.lifestyle?.restaurantsWithin10Minutes ?? 0} 家餐厅（Demo）`],
     },
     ja: {
       commute: ["💚 通勤を重視しています", `→ ${destination} までドアツードア ${property.commute.finalMinutes}分`],
       price: ["💚 毎月の費用を重視しています", `→ 家賃・管理費合計 ¥${(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}`],
       housing: ["💚 部屋の快適さを重視しています", `→ ${property.layout} · ${property.areaSqm}㎡ · 築${property.buildingAgeYears}年`],
       station: ["💚 駅までの移動を重視しています", `→ ${property.station.nameJa}駅 徒歩${property.station.walkingMinutes}分`],
-      lifestyle: ["💚 周辺の暮らしを重視しています", `→ 徒歩10分内にスーパー${property.lifestyle.supermarketsWithin10Minutes ?? 0}件・飲食店${property.lifestyle.restaurantsWithin10Minutes ?? 0}件（Demo）`],
+      lifestyle: ["💚 周辺の暮らしを重視しています", `→ 徒歩10分内にスーパー${property.lifestyle?.supermarketsWithin10Minutes ?? 0}件・飲食店${property.lifestyle?.restaurantsWithin10Minutes ?? 0}件（Demo）`],
     },
     en: {
       commute: ["💚 You care about commute", `→ Only ${property.commute.finalMinutes} min door to door to ${destination}`],
       price: ["💚 You care about monthly cost", `→ ¥${(property.monthlyRentYen + property.managementFeeYen).toLocaleString()} including management fee`],
       housing: ["💚 You value room comfort", `→ ${property.layout} · ${property.areaSqm}㎡ · ${property.buildingAgeYears} years old`],
       station: ["💚 You value easy station access", `→ ${property.station.walkingMinutes}-min walk to ${property.station.nameJa}`],
-      lifestyle: ["💚 You value neighborhood life", `→ ${property.lifestyle.supermarketsWithin10Minutes ?? 0} markets and ${property.lifestyle.restaurantsWithin10Minutes ?? 0} restaurants within 10 min (Demo)`],
+      lifestyle: ["💚 You value neighborhood life", `→ ${property.lifestyle?.supermarketsWithin10Minutes ?? 0} markets and ${property.lifestyle?.restaurantsWithin10Minutes ?? 0} restaurants within 10 min (Demo)`],
     },
   };
   const rows = priorities.slice(0, 2).map((key) => detail[locale][key]);
@@ -793,8 +793,8 @@ export default function Home() {
                           </div>
                           <div><span>{copy.managementFee}</span><strong>¥{property.managementFeeYen.toLocaleString()}</strong></div>
                           <div><span>{copy.monthlyTotal}</span><strong>¥{(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}</strong></div>
-                          <div><span>{copy.nearestMarket}</span><strong>{copy.walk} {property.lifestyle.nearestSupermarketWalkMinutes ?? "—"} {copy.minutes}</strong></div>
-                          <div><span>10 min area</span><strong>Market {property.lifestyle.supermarketsWithin10Minutes ?? "—"} · Store {property.lifestyle.convenienceStoresWithin10Minutes ?? "—"} · Food {property.lifestyle.restaurantsWithin10Minutes ?? "—"}</strong></div>
+                          <div><span>{copy.nearestMarket}</span><strong>{copy.walk} {property.lifestyle?.nearestSupermarketWalkMinutes ?? "—"} {copy.minutes}</strong></div>
+                          <div><span>10 min area</span><strong>Market {property.lifestyle?.supermarketsWithin10Minutes ?? "—"} · Store {property.lifestyle?.convenienceStoresWithin10Minutes ?? "—"} · Food {property.lifestyle?.restaurantsWithin10Minutes ?? "—"}</strong></div>
                           <p>{locale === "zh" ? "生活设施为确定性 Demo 数据；详细目标值与容忍度仅用于内部匹配。" : locale === "ja" ? "生活施設は決定的なDemoデータです。詳細な目標値と許容範囲は内部マッチだけに使用します。" : "Amenities are deterministic demo data. Detailed targets and tolerances are used only for internal matching."}</p>
                           {property.sourceUrl ? <a href={property.sourceUrl} target="_blank" rel="noreferrer">{locale === "zh" ? "查看原房源" : locale === "ja" ? "掲載元を見る" : "View source"} ↗</a> : <span className="demo-source">Demo property · no source link</span>}
                         </div>

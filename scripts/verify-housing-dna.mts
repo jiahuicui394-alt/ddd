@@ -7,7 +7,7 @@ import {
   scoreProperties,
 } from "../lib/housing-scoring.ts";
 import type { HbtiAnswers } from "../lib/housing-scoring.ts";
-import type { CommuteSearchResponse } from "../lib/commute-types.ts";
+import type { CommuteSearchResponse, PropertyMatch } from "../lib/commute-types.ts";
 import { HBTI_QUESTION_COPY, PAGE_COPY } from "../lib/i18n.ts";
 
 const baseUrl = process.env.TEST_BASE_URL ?? "http://localhost:3000";
@@ -88,6 +88,15 @@ for (const [index, key] of ["commute", "housing", "price", "lifestyle", "station
 
 const scored = scoreProperties(result.properties, result.reachableStations, profile);
 if (scored.length !== result.properties.length) throw new Error("Some qualifying properties were not scored.");
+const legacyProperties = result.properties.slice(0, 3).map((property) => {
+  const { lifestyle: _missingInLegacyApi, ...legacyProperty } = property;
+  return legacyProperty;
+}) as unknown as PropertyMatch[];
+const legacyScored = scoreProperties(legacyProperties, result.reachableStations, profile);
+if (legacyScored.length !== legacyProperties.length
+  || legacyScored.some((property) => !Number.isFinite(property.scores.lifestyle))) {
+  throw new Error("Legacy API properties without lifestyle fields crash scoring.");
+}
 const distinctCommuteScores = new Set(scored.map((property) => property.scores.commute));
 if (distinctCommuteScores.size < 2 || [...distinctCommuteScores].every((score) => score === 100)) {
   throw new Error("Best Commute scores are saturated at 100.");
@@ -172,6 +181,7 @@ console.log(JSON.stringify({
     "global-ranking-all-qualifying-properties",
     "station-click-property-subset",
     "best-commute-score-not-saturated",
+    "legacy-api-missing-lifestyle-compatible",
     "internal-targets-and-tolerances",
     "layout-preference",
     "five-internal-scores-0-100",

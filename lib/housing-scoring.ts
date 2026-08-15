@@ -333,10 +333,10 @@ function higherTargetScore(value: number, target: number, tolerance: number) {
   return roundScore(88 - Math.min(2, (target - value) / tolerance) * 35);
 }
 function lifestyleScore(property: PropertyMatch) {
-  const walk = property.lifestyle.nearestSupermarketWalkMinutes ?? 10;
-  const supermarkets = property.lifestyle.supermarketsWithin10Minutes ?? 1;
-  const convenience = property.lifestyle.convenienceStoresWithin10Minutes ?? 2;
-  const restaurants = property.lifestyle.restaurantsWithin10Minutes ?? 4;
+  const walk = property.lifestyle?.nearestSupermarketWalkMinutes ?? 10;
+  const supermarkets = property.lifestyle?.supermarketsWithin10Minutes ?? 1;
+  const convenience = property.lifestyle?.convenienceStoresWithin10Minutes ?? 2;
+  const restaurants = property.lifestyle?.restaurantsWithin10Minutes ?? 4;
   return roundScore(
     clamp(100 - Math.max(0, walk - 2) * 5.5, 35, 100) * 0.35
     + clamp(52 + supermarkets * 6, 45, 100) * 0.25
@@ -346,10 +346,11 @@ function lifestyleScore(property: PropertyMatch) {
 }
 function reasonFor(key: HousingPreferenceKey, score: number, property: PropertyMatch): RecommendationReason {
   const strong = score >= 80;
+  const lifestyleIsDemo = property.lifestyle?.dataSource !== "real_poi";
   const messages: Record<HousingPreferenceKey, [string, string]> = {
     commute: ["通勤优秀", "通勤符合预算"], price: ["性价比高", "总月费可接受"],
     housing: ["房屋条件匹配", "房屋条件较均衡"], station: ["离车站近", "到站距离可接受"],
-    lifestyle: [property.lifestyle.dataSource === "generated_mock" ? "生活便利 Demo 表现好" : "生活设施丰富", property.lifestyle.dataSource === "generated_mock" ? "生活数据为 Demo" : "生活便利度适中"],
+    lifestyle: [lifestyleIsDemo ? "生活便利 Demo 表现好" : "生活设施丰富", lifestyleIsDemo ? "生活数据为 Demo" : "生活便利度适中"],
   };
   return { tone: strong ? "strong" : "balanced", text: strong ? messages[key][0] : messages[key][1] };
 }
