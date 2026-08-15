@@ -30,6 +30,10 @@ import type {
 } from "@/lib/housing-scoring";
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+const GEOCODING_API_URL = (
+  process.env.NEXT_PUBLIC_GEOCODING_API_URL
+  ?? "https://vzspggdeyfcthtldtfxi.supabase.co/functions/v1/geocode-places"
+).replace(/\/$/, "");
 
 function apiUrl(path: string) {
   return `${API_BASE_URL}${path}`;
@@ -288,7 +292,10 @@ export default function Home() {
       setSuggestionsLoading(true);
       try {
         const biasParams = locationBias ? `&lat=${locationBias.lat}&lng=${locationBias.lng}` : "";
-        const response = await fetch(apiUrl(`/api/places?q=${encodeURIComponent(query)}${biasParams}`), {
+        const placesUrl = GEOCODING_API_URL
+          ? `${GEOCODING_API_URL}?q=${encodeURIComponent(query)}${biasParams}`
+          : apiUrl(`/api/places?q=${encodeURIComponent(query)}${biasParams}`);
+        const response = await fetch(placesUrl, {
           signal: controller.signal,
         });
         const data = await response.json();

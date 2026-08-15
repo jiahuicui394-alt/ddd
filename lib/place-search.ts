@@ -215,7 +215,7 @@ export async function searchDestinationSuggestions(rawQuery: string, bias?: Coor
     ),
   }));
   const shouldSuggestNearbyPoi =
-    Boolean(matchedIntent) || firstFeature.properties.category === "railway";
+    Boolean(matchedIntent) || firstFeature?.properties.category === "railway";
   const poiIntents = matchedIntent
     ? [matchedIntent]
     : shouldSuggestNearbyPoi
