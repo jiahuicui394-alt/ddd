@@ -48,6 +48,13 @@ main { min-height: 100vh; overflow: hidden; background: radial-gradient(circle a
 .field input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 16px; font-weight: 600; }
 .field input[type="number"] { max-width: 72px; }
 .time-field b { color: var(--ink-soft); font-size: 13px; }
+.budget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.budget-grid label { min-width: 0; margin-bottom: 0; }
+.budget-field { height: 54px; padding: 0 13px; }
+.budget-field b { color: var(--green); font-size: 15px; }
+.budget-field input[type="number"] { width: 100%; max-width: none; }
+.budget-hint { display: flex; gap: 6px; margin: 9px 2px 0; color: #87938f; font-size: 9px; line-height: 1.45; }
+.budget-hint strong { flex: 0 0 auto; color: #5f746e; }
 .destination-label { position: relative; z-index: 12; }
 .destination-search { position: relative; }
 .suggestion-spinner { width: 16px; height: 16px; flex: 0 0 auto; border: 2px solid #d9e5e1; border-top-color: var(--green); border-radius: 50%; animation: suggestion-spin .7s linear infinite; }
@@ -328,6 +335,10 @@ footer { max-width: 1184px; margin: 0 auto; padding: 30px 0; display: flex; just
   .suggestion-meta { display: none; }
   .selected-place { grid-template-columns: auto minmax(0, 1fr); }
   .selected-place-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .budget-grid { gap: 8px; }
+  .budget-field { padding: 0 10px; }
+  .budget-hint { display: block; }
+  .budget-hint strong { display: block; margin-bottom: 2px; }
   .rail-line { grid-template-columns: 1fr; }
   .rail-line > header { border-right: 0; border-bottom: 1px solid var(--line); }
   .rail-line > header small { max-width: none; }

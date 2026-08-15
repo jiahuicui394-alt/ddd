@@ -17,6 +17,7 @@ import {
   getLineStationOrder,
 } from "@/lib/tokyo-line-order";
 import {
+  applyIdealBudget,
   DEFAULT_HBTI_ANSWERS,
   deriveHbtiProfile,
   rankProperties,
@@ -224,6 +225,8 @@ export default function Home() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [destination, setDestination] = useState("东京大学");
   const [maxMinutes, setMaxMinutes] = useState(35);
+  const [idealBudgetYen, setIdealBudgetYen] = useState(100000);
+  const [maxBudgetYen, setMaxBudgetYen] = useState(160000);
   const [result, setResult] = useState<CommuteSearchResponse>(initialResult);
   const [selected, setSelected] = useState<ReachableStation | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<PlaceSuggestion | null>(null);
@@ -274,13 +277,17 @@ export default function Home() {
     ),
     [result.reachableStations, selectedDestinationStation],
   );
+  const budgetAdjustedProfile = useMemo(
+    () => applyIdealBudget(preferenceProfile, idealBudgetYen),
+    [idealBudgetYen, preferenceProfile],
+  );
   const scoredProperties = useMemo(
     () => scoreProperties(
       result.properties,
       result.reachableStations,
-      preferenceProfile,
+      budgetAdjustedProfile,
     ),
-    [preferenceProfile, result.properties, result.reachableStations],
+    [budgetAdjustedProfile, result.properties, result.reachableStations],
   );
   const rankedProperties = useMemo(
     () => rankProperties(scoredProperties, rankingMode),
@@ -395,6 +402,7 @@ export default function Home() {
       body: JSON.stringify({
         destination: destinationOverride ?? destination,
         maxMinutes,
+        maxBudgetYen,
         destinationStationId,
         destinationPlace: requestPlace
           ? {
@@ -435,6 +443,10 @@ export default function Home() {
 
   async function handleSearch(event: FormEvent) {
     event.preventDefault();
+    if (idealBudgetYen > maxBudgetYen) {
+      setError(copy.budgetError);
+      return;
+    }
     setLoading(true);
     setError("");
     setSelected(null);
@@ -586,6 +598,23 @@ export default function Home() {
               <b>{copy.withinMinutes}</b>
             </div>
           </label>
+          <div className="budget-grid">
+            <label>
+              <span>{copy.idealBudget}</span>
+              <div className="field budget-field">
+                <b>¥</b>
+                <input type="number" min="45000" max="500000" step="5000" value={idealBudgetYen} onChange={(event) => setIdealBudgetYen(Number(event.target.value))} required />
+              </div>
+            </label>
+            <label>
+              <span>{copy.maxBudget}</span>
+              <div className="field budget-field">
+                <b>¥</b>
+                <input type="number" min="45000" max="500000" step="5000" value={maxBudgetYen} onChange={(event) => setMaxBudgetYen(Number(event.target.value))} required />
+              </div>
+            </label>
+          </div>
+          <p className="budget-hint"><strong>{copy.budgetUnit}</strong>{copy.budgetHint}</p>
           <button type="submit" disabled={loading}>
             <Icon name="search" />{loading ? copy.searching : copy.search}
           </button>
@@ -811,7 +840,7 @@ export default function Home() {
                         <div className="listing-details">
                           <div className="why-matched">
                             <h5>Why we matched</h5>
-                            {getWhyMatched(property, preferenceProfile, locale, result.destination.name).map(([title, explanation]) => (
+                            {getWhyMatched(property, budgetAdjustedProfile, locale, result.destination.name).map(([title, explanation]) => (
                               <p key={`${title}:${explanation}`}><strong>{title}</strong><span>{explanation}</span></p>
                             ))}
                           </div>

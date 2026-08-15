@@ -52,6 +52,7 @@ export type PropertySearchResult = {
 export async function findMatchingProperties(
   reachableStations: ReachableStation[],
   maxMinutes: number,
+  maxMonthlyCostYen = 500000,
 ): Promise<PropertySearchResult> {
   const supabase = getSupabaseClient();
   if (!supabase || reachableStations.length === 0) {
@@ -102,6 +103,7 @@ export async function findMatchingProperties(
   for (const row of (data ?? []) as unknown as PropertyStationRow[]) {
     const reachableStation = reachableByKey.get(row.station.station_key);
     if (!reachableStation) continue;
+    if (row.property.monthly_rent_yen + row.property.management_fee_yen > maxMonthlyCostYen) continue;
     if (row.walk_minutes > MAX_ORIGIN_WALK_MINUTES) continue;
     if (reachableStation.walkingMinutes > MAX_ROUTE_WALK_MINUTES) continue;
     if (reachableStation.transfers > 1) continue;

@@ -18,9 +18,14 @@ export async function POST(request: Request) {
         address?: string;
       };
       destinationStationId?: string;
+      maxBudgetYen?: number;
     };
     const destination = body.destination?.trim() || "东京大学";
     const maxMinutes = Math.min(90, Math.max(10, Number(body.maxMinutes) || 35));
+    const submittedMaxBudget = Number(body.maxBudgetYen);
+    const maxBudgetYen = Number.isFinite(submittedMaxBudget)
+      ? Math.min(500000, Math.max(45000, submittedMaxBudget))
+      : 500000;
     const place = body.destinationPlace;
     const destinationPlace =
       place &&
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
     const propertyResult = await findMatchingProperties(
       commuteResult.reachableStations,
       maxMinutes,
+      maxBudgetYen,
     );
 
     return withCors(

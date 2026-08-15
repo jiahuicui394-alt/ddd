@@ -61,6 +61,19 @@ export type ScoredProperty = PropertyMatch & {
   specificPreferenceConflicts: PenaltyPreferenceKey[];
 };
 
+export function applyIdealBudget(
+  profile: PreferenceProfile,
+  idealBudgetYen: number,
+): PreferenceProfile {
+  return {
+    ...profile,
+    targets: {
+      ...profile.targets,
+      totalMonthlyCostYen: clamp(idealBudgetYen, 45000, 500000),
+    },
+  };
+}
+
 export const HOUSING_DNA_ITEMS: Array<{
   key: HousingPreferenceKey;
   label: string;

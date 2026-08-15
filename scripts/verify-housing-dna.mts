@@ -2,6 +2,7 @@ import {
   applyHbtiPriorityOrder,
   DEFAULT_HBTI_ANSWERS,
   deriveHbtiProfile,
+  applyIdealBudget,
   HBTI_QUESTIONS,
   rankProperties,
   scoreProperties,
@@ -30,6 +31,7 @@ const response = await fetch(`${baseUrl}/api/commute`, {
   body: JSON.stringify({
     destination: moriTower.name,
     maxMinutes: 35,
+    maxBudgetYen: 160000,
     destinationPlace: { lat: moriTower.lat, lng: moriTower.lng, address: moriTower.address },
   }),
 });
@@ -37,6 +39,9 @@ if (!response.ok) throw new Error(`Commute API failed: ${response.status} ${awai
 const result = await response.json() as CommuteSearchResponse;
 if (result.properties.length === 0 || result.reachableStations.length === 0) {
   throw new Error("The commute flow did not return stations and properties.");
+}
+if (result.properties.some((property) => property.monthlyRentYen + property.managementFeeYen > 160000)) {
+  throw new Error("A property above the maximum monthly budget entered the candidate set.");
 }
 if (result.nearbyStations.some((station) => station.walkingMinutes > 15)) {
   throw new Error("A destination access station exceeds the 15-minute walking limit.");
@@ -77,6 +82,16 @@ const answers: HbtiAnswers = {
   q16: -1, q17: 0, q18: 1, q19: -1, q20: 2,
 };
 const profile = deriveHbtiProfile(answers, result.properties);
+const lowerIdealBudgetProfile = applyIdealBudget(profile, 80000);
+const higherIdealBudgetProfile = applyIdealBudget(profile, 160000);
+const highestCostProperty = [...result.properties].sort(
+  (left, right) => (right.monthlyRentYen + right.managementFeeYen) - (left.monthlyRentYen + left.managementFeeYen),
+)[0];
+const lowBudgetPriceScore = scoreProperties([highestCostProperty], result.reachableStations, lowerIdealBudgetProfile)[0].scores.price;
+const highBudgetPriceScore = scoreProperties([highestCostProperty], result.reachableStations, higherIdealBudgetProfile)[0].scores.price;
+if (highBudgetPriceScore <= lowBudgetPriceScore) {
+  throw new Error("Ideal budget did not affect the price matching score.");
+}
 const weightTotal = Object.values(profile.weights).reduce((total, weight) => total + weight, 0);
 if (Math.abs(weightTotal - 1) > 0.0001) throw new Error("HBTI weights do not total 100%.");
 if (!profile.roomDnaName || !profile.roomDnaDescription || profile.layoutPreference.length !== 3) {
@@ -193,6 +208,7 @@ const accessResponse = await fetch(`${baseUrl}/api/commute`, {
   body: JSON.stringify({
     destination: moriTower.name,
     maxMinutes: 35,
+    maxBudgetYen: 160000,
     destinationStationId: accessStation.id,
     destinationPlace: { lat: moriTower.lat, lng: moriTower.lng, address: moriTower.address },
   }),
@@ -218,6 +234,8 @@ console.log(JSON.stringify({
   },
   checks: [
     "commute-filter",
+    "maximum-budget-hard-filter",
+    "ideal-budget-price-score",
     "precise-building-poi-search",
     "submit-with-top-place-suggestion",
     "zh-ja-en-localization",
