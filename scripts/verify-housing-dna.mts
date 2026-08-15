@@ -88,6 +88,10 @@ for (const [index, key] of ["commute", "housing", "price", "lifestyle", "station
 
 const scored = scoreProperties(result.properties, result.reachableStations, profile);
 if (scored.length !== result.properties.length) throw new Error("Some qualifying properties were not scored.");
+const distinctCommuteScores = new Set(scored.map((property) => property.scores.commute));
+if (distinctCommuteScores.size < 2 || [...distinctCommuteScores].every((score) => score === 100)) {
+  throw new Error("Best Commute scores are saturated at 100.");
+}
 for (const property of scored) {
   for (const score of Object.values(property.scores)) {
     if (score < 0 || score > 100) throw new Error(`Score outside 0-100 for ${property.id}.`);
@@ -118,6 +122,12 @@ for (const mode of ["for-you", "value", "commute"] as const) {
 const globalRanking = rankProperties(scored, "for-you");
 const top = globalRanking[0];
 if (globalRanking.length !== result.properties.length) throw new Error("Global ranking omitted qualifying properties.");
+const selectedStationProperties = globalRanking.filter((property) => property.station.key === top.station.key);
+if (selectedStationProperties.length === 0
+  || selectedStationProperties.some((property) => property.station.key !== top.station.key)
+  || selectedStationProperties.length >= globalRanking.length) {
+  throw new Error("Station selection did not produce the expected property subset.");
+}
 
 const accessStation = result.nearbyStations[0];
 const accessResponse = await fetch(`${baseUrl}/api/commute`, {
@@ -152,6 +162,7 @@ console.log(JSON.stringify({
   checks: [
     "commute-filter",
     "precise-building-poi-search",
+    "submit-with-top-place-suggestion",
     "zh-ja-en-localization",
     "destination-access-walk-max-15",
     "major-hub-access-weight",
@@ -159,6 +170,8 @@ console.log(JSON.stringify({
     "hbti-20-questions-five-per-page-model",
     "drag-priority-35-25-18-13-9",
     "global-ranking-all-qualifying-properties",
+    "station-click-property-subset",
+    "best-commute-score-not-saturated",
     "internal-targets-and-tolerances",
     "layout-preference",
     "five-internal-scores-0-100",

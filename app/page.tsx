@@ -268,7 +268,12 @@ export default function Home() {
     () => rankProperties(scoredProperties, rankingMode),
     [rankingMode, scoredProperties],
   );
-  const visibleProperties = rankedProperties;
+  const visibleProperties = useMemo(
+    () => selected
+      ? rankedProperties.filter((property) => property.station.key === selected.id)
+      : rankedProperties,
+    [rankedProperties, selected],
+  );
 
   useEffect(() => {
     const query = destination.trim();
@@ -357,19 +362,24 @@ export default function Home() {
     }, 80);
   }
 
-  async function requestCommute(destinationStationId?: string) {
+  async function requestCommute(
+    destinationStationId?: string,
+    placeOverride?: PlaceSuggestion,
+    destinationOverride?: string,
+  ) {
+    const requestPlace = placeOverride ?? selectedPlace;
     const response = await fetch(apiUrl("/api/commute"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        destination,
+        destination: destinationOverride ?? destination,
         maxMinutes,
         destinationStationId,
-        destinationPlace: selectedPlace
+        destinationPlace: requestPlace
           ? {
-              lat: selectedPlace.lat,
-              lng: selectedPlace.lng,
-              address: selectedPlace.address,
+              lat: requestPlace.lat,
+              lng: requestPlace.lng,
+              address: requestPlace.address,
             }
           : undefined,
       }),
@@ -404,11 +414,6 @@ export default function Home() {
 
   async function handleSearch(event: FormEvent) {
     event.preventDefault();
-    if (!selectedPlace || selectedPlace.name !== destination.trim()) {
-      setError(copy.exactRequired);
-      setShowSuggestions(true);
-      return;
-    }
     setLoading(true);
     setError("");
     setSelected(null);
@@ -417,7 +422,19 @@ export default function Home() {
     setShowPlaceMap(false);
 
     try {
-      const data = await requestCommute();
+      let requestPlace = selectedPlace;
+      let requestDestination = destination.trim();
+      if (!requestPlace || requestPlace.name !== requestDestination) {
+        const biasParams = locationBias ? `&lat=${locationBias.lat}&lng=${locationBias.lng}` : "";
+        const placeResponse = await fetch(apiUrl(`/api/places?q=${encodeURIComponent(requestDestination)}${biasParams}`));
+        const placeData = await placeResponse.json();
+        requestPlace = placeData.suggestions?.[0] ?? null;
+        if (!placeResponse.ok || !requestPlace) throw new Error(placeData.error || copy.exactRequired);
+        requestDestination = requestPlace.name;
+        setSelectedPlace(requestPlace);
+        setDestination(requestDestination);
+      }
+      const data = await requestCommute(undefined, requestPlace, requestDestination);
       setResult(data);
       window.setTimeout(() => document.getElementById(dnaApplied ? "property-results" : "housing-dna")?.scrollIntoView({ behavior: "smooth", block: "start" }), 140);
     } catch (searchError) {
@@ -697,7 +714,14 @@ export default function Home() {
           <section className="property-results" id="property-results">
             <div className="list-heading property-heading">
               <div><span className="section-kicker">ROOMANCE · ROOM + ROMANCE</span><h3>Your Best Matches</h3></div>
-              <span className="database-badge"><i /> {visibleProperties.length} · {copy.supabaseConnected}</span>
+              {selected ? (
+                <span className="property-station-filter">
+                  <i /> {selected.name} · {visibleProperties.length}
+                  <button type="button" onClick={() => setSelected(null)}>{copy.allHomes}</button>
+                </span>
+              ) : (
+                <span className="database-badge"><i /> {visibleProperties.length} · {copy.supabaseConnected}</span>
+              )}
             </div>
             <p className="property-explainer"><strong>Find a room worth falling for.</strong> {copy.rankingHint}</p>
             {!dnaApplied ? <div className="ranking-locked">

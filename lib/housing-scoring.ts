@@ -364,8 +364,10 @@ export function scoreProperties(properties: PropertyMatch[], stations: Reachable
     const layoutScore = layoutRank === 0 ? 100 : layoutRank === 1 ? 82 : 68;
     const areaScore = higherTargetScore(property.areaSqm, profile.targets.areaSqm, profile.tolerances.areaSqm);
     const ageScore = lowerTargetScore(property.buildingAgeYears, profile.targets.maxBuildingAgeYears, profile.tolerances.buildingAgeYears);
+    const targetCommuteScore = lowerTargetScore(effectiveCommute, profile.targets.commuteMinutes, profile.tolerances.commuteMinutes);
+    const continuousCommuteScore = clamp(110 - effectiveCommute * 0.65);
     const scores: HousingScores = {
-      commute: lowerTargetScore(effectiveCommute, profile.targets.commuteMinutes, profile.tolerances.commuteMinutes),
+      commute: roundScore(targetCommuteScore * 0.55 + continuousCommuteScore * 0.45),
       price: lowerTargetScore(totalCost, profile.targets.totalMonthlyCostYen, profile.tolerances.monthlyCostYen),
       housing: roundScore(areaScore * 0.5 + ageScore * 0.35 + layoutScore * 0.15),
       station: lowerTargetScore(property.station.walkingMinutes, profile.targets.stationWalkMinutes, profile.tolerances.stationWalkMinutes),
