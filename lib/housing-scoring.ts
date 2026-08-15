@@ -270,25 +270,34 @@ function hbtiTypeName(weights: HousingWeights) {
 export function deriveHbtiProfile(
   answers: HbtiAnswers,
   properties: PropertyMatch[],
+  order: HousingPreferenceKey[] = DEFAULT_HOUSING_DNA_ORDER,
+  feedback: SwipeFeedback[] = [],
 ): PreferenceProfile {
   const baseProfile = derivePreferenceProfile(
-    [...DEFAULT_HOUSING_DNA_ORDER],
+    order,
     { ...DEFAULT_FIVE_GRID_ANSWERS },
-    [],
+    feedback,
     properties,
   );
-  const weights: HousingWeights = {
-    commute: 12,
-    price: 12,
-    housing: 12,
-    station: 12,
-    lifestyle: 12,
-  };
+  const weights: HousingWeights = { commute: 0, price: 0, housing: 0, station: 0, lifestyle: 0 };
+  order.forEach((key, index) => {
+    weights[key] = (RANK_WEIGHTS[index] ?? RANK_WEIGHTS[RANK_WEIGHTS.length - 1]) * 60;
+  });
 
   for (const question of HBTI_QUESTIONS) {
     const answer = answers[question.id] ?? 0;
     for (const [key, effect] of Object.entries(question.effects)) {
       weights[key as HousingPreferenceKey] += answer * effect;
+    }
+  }
+  const swipeEffects: Record<string, Partial<Record<HousingPreferenceKey, number>>> = {
+    "dna-compact-near-station": { commute: 1.4, station: 1.4, price: -0.8, housing: -0.5 },
+    "dna-large-value-room": { price: 1.3, housing: 1.2, station: -0.9, commute: -0.5 },
+    "dna-new-lifestyle-home": { housing: 1.2, lifestyle: 1.4, price: -0.9, commute: -0.5 },
+  };
+  for (const response of feedback) {
+    for (const [key, effect] of Object.entries(swipeEffects[response.propertyId] ?? {})) {
+      weights[key as HousingPreferenceKey] += response.reaction * effect;
     }
   }
   normalizeWeights(weights);

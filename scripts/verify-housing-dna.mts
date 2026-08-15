@@ -8,6 +8,7 @@ import {
 } from "../lib/housing-scoring.ts";
 import type { HbtiAnswers } from "../lib/housing-scoring.ts";
 import type { CommuteSearchResponse, PropertyMatch } from "../lib/commute-types.ts";
+import { HOUSING_CALIBRATION_PROPERTIES } from "../lib/housing-calibration.ts";
 import { HBTI_QUESTION_COPY, PAGE_COPY } from "../lib/i18n.ts";
 
 const baseUrl = process.env.TEST_BASE_URL ?? "http://localhost:3000";
@@ -76,6 +77,24 @@ if (!profile.roomDnaName || !profile.roomDnaDescription || profile.layoutPrefere
 if (Object.values(profile.targets).some((value) => !Number.isFinite(value))
   || Object.values(profile.tolerances).some((value) => !Number.isFinite(value) || value <= 0)) {
   throw new Error("HBTI target or tolerance inference failed.");
+}
+
+const calibrationFeedback = HOUSING_CALIBRATION_PROPERTIES.map((property, index) => ({
+  propertyId: property.id,
+  reaction: (index === 1 ? -1 : 1) as -1 | 1,
+  reasons: index === 0 ? ["通勤时间短", "离车站近"] : index === 1 ? ["离车站太远"] : ["房子更新"],
+}));
+const combinedProfile = deriveHbtiProfile(
+  answers,
+  HOUSING_CALIBRATION_PROPERTIES,
+  ["housing", "commute", "price", "lifestyle", "station"],
+  calibrationFeedback,
+);
+if (combinedProfile.weights.housing <= combinedProfile.weights.station
+  || Object.keys(combinedProfile.weights).every((key) =>
+    combinedProfile.weights[key as keyof typeof combinedProfile.weights]
+      === profile.weights[key as keyof typeof profile.weights])) {
+  throw new Error("Priority + HBTI + swipe inputs were not combined.");
 }
 
 const customized = applyHbtiPriorityOrder(profile, ["commute", "housing", "price", "lifestyle", "station"]);
@@ -177,6 +196,7 @@ console.log(JSON.stringify({
     "major-hub-access-weight",
     "destination-station-refilter",
     "hbti-20-questions-five-per-page-model",
+    "priority-hbti-swipe-combined-blackbox-profile",
     "drag-priority-35-25-18-13-9",
     "global-ranking-all-qualifying-properties",
     "station-click-property-subset",
