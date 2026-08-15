@@ -89,7 +89,6 @@ main { min-height: 100vh; overflow: hidden; background: radial-gradient(circle a
 .search-panel > button { width: 100%; height: 58px; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 25px; border: 0; border-radius: 13px; color: white; background: var(--green); font-weight: 700; cursor: pointer; box-shadow: 0 10px 22px rgba(45,115,103,.22); transition: transform .2s, background .2s; }
 .search-panel > button:hover { transform: translateY(-2px); background: #255f56; }
 .search-panel > button:disabled { opacity: .65; cursor: wait; transform: none; }
-.form-hint { margin: 13px 0 0; color: #87938f; text-align: center; font-size: 11px; }
 
 .error-banner { max-width: 1184px; margin: 0 auto 24px; padding: 14px 18px; border: 1px solid #f0b8ae; border-radius: 12px; color: #8e3328; background: #fff0ec; }
 .results-shell { padding: 54px max(28px, calc((100vw - 1184px) / 2)) 80px; background: #edf0e9; border-top: 1px solid var(--line); }

@@ -519,7 +519,7 @@ export default function Home() {
         </div>
 
         <form className="search-panel" onSubmit={handleSearch}>
-          <div className="parallel-feature-label hero-tool-label"><span>01</span><div><strong>{copy.tool1}</strong><small>{copy.tool1Hint}</small></div></div>
+          <div className="parallel-feature-label hero-tool-label"><span>01</span><div><strong>{copy.tool1}</strong></div></div>
           <label className="destination-label">
             <span>{copy.destination}</span>
             <div
@@ -635,7 +635,6 @@ export default function Home() {
           <button type="submit" disabled={loading}>
             <Icon name="search" />{loading ? copy.searching : copy.search}
           </button>
-          <p className="form-hint">{copy.formHint}</p>
         </form>
       </section>
 
