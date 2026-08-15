@@ -1,4 +1,5 @@
 import type { FiveGridQuestionId, HbtiQuestionId, HousingPreferenceKey, SpecificPreferenceKey } from "./housing-scoring";
+import type { StationProfileLabelKey } from "./station-demo-profile";
 
 export type Locale = "zh" | "ja" | "en";
 
@@ -22,6 +23,7 @@ export const PAGE_COPY = {
     commuteLines: "通勤线路", chooseAccess: "先选择目的地入口站", selectable: "亮色站点可选择",
     accessEmpty: "请先选择左侧的一个目的地入口站", stationOptions: "可选居住站", priorityStations: "优先推荐车站",
     stationSort: "门到门时间为主 · 兼顾渋谷 / 新宿 / 池袋枢纽便利度",
+    stationAverageRent: "附近平均租金", stationProfileDemo: "站点画像与均租均为模拟参考",
     ranking: "个性化房源排名", rankingTitle: "符合通勤条件的全部房源", allHomes: "查看全部", supabaseConnected: "Supabase 已连接",
     rankingHint: "所有满足通勤上限的房源都会参加同一个全局 HBTI 匹配。", startDna: "开始测试",
     lockedTitle: "完成 HBTI 后解锁 For You 排名", lockedBody: "20 个具体生活场景会生成你的默认匹配权重。",
@@ -48,6 +50,7 @@ export const PAGE_COPY = {
     commuteLines: "通勤路線", chooseAccess: "目的地側の駅を選択", selectable: "色付きの駅を選択できます",
     accessEmpty: "左側から目的地周辺の駅を選択してください", stationOptions: "居住駅候補", priorityStations: "おすすめ居住駅",
     stationSort: "ドアツードア時間を優先し、渋谷・新宿・池袋への近さも考慮",
+    stationAverageRent: "周辺平均家賃", stationProfileDemo: "駅プロフィール・平均家賃はデモ参考値です",
     ranking: "パーソナルランキング", rankingTitle: "通勤条件を満たすすべての物件", allHomes: "すべて表示", supabaseConnected: "Supabase 接続済み",
     rankingHint: "通勤上限を満たすすべての物件を、同じグローバル HBTI マッチで評価します。", startDna: "診断を始める",
     lockedTitle: "HBTI 完了後に For You を表示", lockedBody: "20の具体的な暮らしの回答から標準マッチ重みを作成します。",
@@ -74,6 +77,7 @@ export const PAGE_COPY = {
     commuteLines: "COMMUTE LINES", chooseAccess: "Choose a destination station", selectable: "Colored stations are selectable",
     accessEmpty: "Choose a nearby destination station on the left", stationOptions: "STATION OPTIONS", priorityStations: "Recommended places to live",
     stationSort: "Door-to-door first, with a soft Shibuya / Shinjuku / Ikebukuro access bonus",
+    stationAverageRent: "Nearby average rent", stationProfileDemo: "Station profiles and rents are demo estimates",
     ranking: "PERSONALIZED RANKING", rankingTitle: "All homes matching your commute", allHomes: "Show all", supabaseConnected: "Supabase connected",
     rankingHint: "Every home within the commute limit joins one global HBTI match ranking.", startDna: "Start test",
     lockedTitle: "Complete HBTI to unlock For You", lockedBody: "Twenty concrete living scenarios create your default match weights.",
@@ -82,6 +86,12 @@ export const PAGE_COPY = {
     walk: "Walk", minutes: "min", transfers: "transfers", noProperties: "No homes currently meet the commute limit. Adjust the destination or time.",
   },
 } as const;
+
+export const STATION_PROFILE_LABELS: Record<Locale, Record<StationProfileLabelKey, string>> = {
+  zh: { livable: "宜居", affordable: "房价友好", connected: "交通便利", safe: "治安安心", lively: "生活便利", quiet: "安静" },
+  ja: { livable: "住みやすい", affordable: "家賃控えめ", connected: "交通便利", safe: "治安安心", lively: "生活便利", quiet: "静かな街" },
+  en: { livable: "Livable", affordable: "Lower rent", connected: "Well connected", safe: "Peaceful", lively: "Lively", quiet: "Quiet" },
+};
 
 export const PREFERENCE_LABELS: Record<Locale, Record<HousingPreferenceKey, string>> = {
   zh: { commute: "通勤", price: "价格", housing: "房屋", station: "车站", lifestyle: "生活" },

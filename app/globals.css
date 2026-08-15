@@ -164,7 +164,7 @@ main { min-height: 100vh; overflow: hidden; background: radial-gradient(circle a
 .rail-stations { position: relative; display: flex; align-items: flex-start; gap: 2px; min-width: 0; overflow-x: auto; padding: 11px 8px 8px; scrollbar-width: thin; }
 .rail-stations::before { content: ""; position: absolute; top: 24px; left: 8px; right: 8px; height: 3px; border-radius: 99px; background: var(--rail-color); opacity: .72; }
 .rail-more { position: relative; z-index: 1; flex: 0 0 18px; padding-top: 4px; color: #a1aaa7; background: white; font-size: 12px; }
-.rail-station { position: relative; z-index: 2; flex: 0 0 88px; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 0 4px 5px; border: 0; background: transparent; text-align: center; }
+.rail-station { position: relative; z-index: 2; flex: 0 0 112px; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 0 4px 5px; border: 0; background: transparent; text-align: center; }
 button.rail-station { cursor: pointer; }
 .rail-station > i { width: 17px; height: 17px; display: block; border: 4px solid white; border-radius: 50%; background: var(--rail-color); box-shadow: 0 0 0 2px var(--rail-color); transition: transform .18s, box-shadow .18s; }
 .rail-station strong { width: 100%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
@@ -187,12 +187,22 @@ button.rail-station { cursor: pointer; }
 .station-results { margin-top: 20px; padding: 24px; }
 .list-heading > span { color: #81908c; font-size: 11px; }
 .station-table { margin-top: 18px; border-top: 1px solid var(--line); }
-.station-row { width: 100%; min-height: 72px; display: grid; grid-template-columns: 48px 1.1fr 1.5fr 1.7fr .8fr 100px; align-items: center; gap: 12px; padding: 9px 8px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; transition: .18s; }
+.station-row { width: 100%; min-height: 92px; display: grid; grid-template-columns: 48px 1.3fr 1.4fr 1.5fr .8fr 100px; align-items: center; gap: 12px; padding: 9px 8px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; transition: .18s; }
 .station-row:hover { padding-left: 13px; background: #f1f5ef; }
 .rank { color: #a4aeaa; font-family: serif; font-size: 12px; }
 .row-station strong, .row-station small { display: block; }
 .row-station strong { font-size: 15px; }
 .row-station small { margin-top: 2px; color: #87938f; font-size: 10px; }
+.station-demo-profile { display: grid; gap: 4px; margin-top: 7px; }
+.station-profile-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.station-profile-tags i { padding: 3px 6px; border: 1px solid rgba(45,115,103,.12); border-radius: 99px; color: #326b60; background: #edf6f1; font-size: 8px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.station-demo-profile > small { margin: 0; color: #80664e; font-size: 8px; white-space: nowrap; }
+.station-demo-profile em { padding: 1px 3px; border-radius: 3px; color: #9b8065; background: #f5eadc; font-size: 6px; font-style: normal; letter-spacing: .06em; }
+.station-demo-profile.compact { justify-items: center; gap: 3px; margin-top: 1px; }
+.station-demo-profile.compact .station-profile-tags { justify-content: center; }
+.station-demo-profile.compact > small { max-width: 108px; overflow: hidden; font-size: 7px; text-overflow: ellipsis; }
+.station-list-note { display: grid; gap: 4px; text-align: right; }
+.station-list-note small { color: #a08a72; font-size: 8px; }
 .line-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .line-tags i { padding: 4px 7px; border-radius: 5px; color: #49635d; background: #e8f0eb; font-size: 9px; font-style: normal; }
 .line-tags i.hub-access-tag { color: #8a5e37; background: #f5e8d7; }
@@ -322,7 +332,8 @@ footer { max-width: 1184px; margin: 0 auto; padding: 30px 0; display: flex; just
   .results-shell { padding: 40px 14px 60px; }.summary-stats { width: 100%; }.summary-stats div { flex: 1; min-width: 0; padding: 12px 7px; }
   .nearby-card, .commute-map-card, .station-results, .housing-dna, .property-results { padding: 18px; }
   .radial-map { transform: scale(.88); margin: -8px -30px; }
-  .station-row { grid-template-columns: 28px 1fr 80px; }.line-tags { display: none; }
+  .station-row { min-height: 102px; grid-template-columns: 28px 1fr 80px; }.line-tags { display: none; }
+  .station-list-note { max-width: 150px; }
   .property-card, .property-card.scored { grid-template-columns: 1fr; }.property-image { min-height: 175px; }.property-title { flex-direction: column; gap: 7px; }
   .property-price-score { display: flex; align-items: baseline; justify-content: space-between; text-align: left; }
   .ranking-tabs { grid-template-columns: 1fr; }

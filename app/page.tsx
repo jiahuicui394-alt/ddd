@@ -10,7 +10,8 @@ import type {
 } from "@/lib/commute-types";
 import HousingDnaTest from "@/app/components/housing-dna-test";
 import { HOUSING_CALIBRATION_PROPERTIES } from "@/lib/housing-calibration";
-import { PAGE_COPY, SPECIFIC_PREFERENCE_COPY, type Locale } from "@/lib/i18n";
+import { PAGE_COPY, SPECIFIC_PREFERENCE_COPY, STATION_PROFILE_LABELS, type Locale } from "@/lib/i18n";
+import { getStationDemoProfile } from "@/lib/station-demo-profile";
 import {
   getLineColor,
   getLineShortName,
@@ -143,6 +144,21 @@ function getOsmEmbedUrl(place: PlaceSuggestion) {
     place.lat + latDelta,
   ].join(",");
   return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${place.lat}%2C${place.lng}`;
+}
+
+function StationProfile({ station, locale, compact = false }: { station: ReachableStation; locale: Locale; compact?: boolean }) {
+  const profile = getStationDemoProfile(station);
+  const copy = PAGE_COPY[locale];
+  return (
+    <span className={`station-demo-profile ${compact ? "compact" : ""}`}>
+      <span className="station-profile-tags">
+        {profile.labels.slice(0, compact ? 1 : 2).map((label) => (
+          <i key={label}>{STATION_PROFILE_LABELS[locale][label]}</i>
+        ))}
+      </span>
+      <small>{copy.stationAverageRent} ¥{profile.averageRentYen.toLocaleString()} <em>DEMO</em></small>
+    </span>
+  );
 }
 
 function Icon({ name, size = 20 }: { name: "pin" | "clock" | "train" | "walk" | "arrow" | "search" | "spark"; size?: number }) {
@@ -715,6 +731,7 @@ export default function Home() {
                           <i />
                           <strong>{locale === "zh" ? node.station.name : node.station.nameJa}</strong>
                           <small>{node.station.bestDoorToDoorMinutes} min · {node.station.propertyCount} {locale === "zh" ? "套" : locale === "ja" ? "件" : "homes"}</small>
+                          <StationProfile station={node.station} locale={locale} compact />
                         </button>
                       ) : (
                         <span className="rail-station context" key={`${group.line}:${node.nameJa}:${index}`}>
@@ -746,13 +763,13 @@ export default function Home() {
           <section className="station-results">
             <div className="list-heading">
               <div><span className="section-kicker">{copy.stationOptions}</span><h3>{copy.priorityStations}</h3></div>
-              <span>{copy.stationSort}</span>
+              <span className="station-list-note">{copy.stationSort}<small>{copy.stationProfileDemo}</small></span>
             </div>
             <div className="station-table">
               {result.reachableStations.map((station, index) => (
                 <button type="button" key={station.id} className="station-row" onClick={() => chooseStation(station)}>
                   <span className="rank">{String(index + 1).padStart(2, "0")}</span>
-                  <span className="row-station"><strong>{locale === "zh" ? station.name : station.nameJa}</strong><small>{locale === "zh" ? station.nameJa : station.name}</small></span>
+                  <span className="row-station"><strong>{locale === "zh" ? station.name : station.nameJa}</strong><small>{locale === "zh" ? station.nameJa : station.name}</small><StationProfile station={station} locale={locale} /></span>
                   <span className="line-tags">{station.lines.slice(0, 2).map((line) => <i key={line}>{line}</i>)}{station.nearestMajorHub && <i className="hub-access-tag">{locale === "zh" ? "距" : locale === "ja" ? "最寄" : "near"} {station.nearestMajorHub} {station.majorHubDistanceKm}km</i>}</span>
                   <span className="route-summary"><small>{copy.walk} {station.bestPropertyWalkMinutes} {copy.minutes} · {station.totalMinutes} {copy.minutes}</small><strong>{copy.transfers} {station.transfers}</strong></span>
                   <span className="rent-hint">{station.propertyCount} {locale === "zh" ? "套 Demo 房源" : locale === "ja" ? "件のDemo物件" : "demo homes"}</span>

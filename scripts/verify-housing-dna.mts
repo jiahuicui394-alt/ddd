@@ -12,6 +12,7 @@ import type { HbtiAnswers } from "../lib/housing-scoring.ts";
 import type { CommuteSearchResponse, PropertyMatch } from "../lib/commute-types.ts";
 import { HOUSING_CALIBRATION_PROPERTIES } from "../lib/housing-calibration.ts";
 import { HBTI_QUESTION_COPY, PAGE_COPY } from "../lib/i18n.ts";
+import { getStationDemoProfile } from "../lib/station-demo-profile.ts";
 
 const baseUrl = process.env.TEST_BASE_URL ?? "http://localhost:3000";
 for (const locale of ["zh", "ja", "en"] as const) {
@@ -60,6 +61,18 @@ if (result.reachableStations.some((station) =>
   || !station.nearestMajorHub
   || !Number.isFinite(station.majorHubDistanceKm))) {
   throw new Error("Major hub accessibility metadata is incomplete.");
+}
+for (const station of result.reachableStations) {
+  const profile = getStationDemoProfile(station);
+  const repeatedProfile = getStationDemoProfile(station);
+  if (profile.dataSource !== "generated_mock"
+    || profile.labels.length !== 2
+    || new Set(profile.labels).size !== 2
+    || profile.averageRentYen < 72000
+    || profile.averageRentYen > 198000
+    || JSON.stringify(profile) !== JSON.stringify(repeatedProfile)) {
+    throw new Error(`Station demo profile is invalid or unstable for ${station.id}.`);
+  }
 }
 
 for (const property of result.properties) {
@@ -251,6 +264,7 @@ console.log(JSON.stringify({
     "zh-ja-en-localization",
     "destination-access-walk-max-15",
     "major-hub-access-weight",
+    "deterministic-station-profile-and-average-rent-demo",
     "destination-station-refilter",
     "hbti-20-questions-five-per-page-model",
     "priority-hbti-swipe-combined-blackbox-profile",
