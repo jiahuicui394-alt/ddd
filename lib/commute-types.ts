@@ -21,6 +21,9 @@ export type ReachableStation = {
   propertyCount: number;
   bestPropertyWalkMinutes: number;
   bestDoorToDoorMinutes: number;
+  majorHubScore: number;
+  nearestMajorHub: string;
+  majorHubDistanceKm: number;
   direction: "north" | "east" | "south" | "west";
 };
 
@@ -47,6 +50,14 @@ export type PropertyMatch = {
   buildingAgeYears: number;
   floor: number;
   imageUrl: string | null;
+  sourceUrl: string | null;
+  lifestyle: {
+    nearestSupermarketWalkMinutes: number | null;
+    supermarketsWithin10Minutes: number | null;
+    convenienceStoresWithin10Minutes: number | null;
+    restaurantsWithin10Minutes: number | null;
+    dataSource: "generated_mock" | "real_poi" | null;
+  };
   station: {
     key: string;
     name: string;

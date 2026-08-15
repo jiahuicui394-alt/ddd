@@ -42,6 +42,18 @@ const POI_INTENTS: PoiIntent[] = [
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const TOKYO_POI_RADIUS_KM = 2.5;
+const TOKYO_CENTER = { lat: 35.6812, lng: 139.7671 };
+
+function getQueryVariants(query: string) {
+  const normalized = query.normalize("NFKC").trim();
+  const variants = [normalized];
+  if (/六本木.*森(?:ビル|大厦|大樓)|森(?:ビル|大厦|大樓).*六本木/i.test(normalized)) {
+    variants.push("六本木ヒルズ森タワー", "Roppongi Hills Mori Tower");
+  } else if (/森(?:ビル|大厦|大樓)|Mori Building/i.test(normalized)) {
+    variants.push("森タワー", "Mori Building");
+  }
+  return [...new Set(variants)].slice(0, 3);
+}
 
 const cacheHost = globalThis as typeof globalThis & {
   destinationSuggestionCache?: Map<
@@ -97,10 +109,11 @@ async function searchPhotonPoi(
   query: string,
   category: string,
   center: Coordinates,
+  radiusKm = TOKYO_POI_RADIUS_KM,
 ) {
   const url = new URL("https://photon.komoot.io/api/");
-  const lngDelta = 0.03;
-  const latDelta = 0.025;
+  const lngDelta = Math.min(0.22, Math.max(0.03, radiusKm / 80));
+  const latDelta = Math.min(0.18, Math.max(0.025, radiusKm / 100));
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "20");
   url.searchParams.set(
@@ -148,7 +161,7 @@ async function searchPhotonPoi(
         distance: haversineKm(center, { lat: Number(lat), lng: Number(lng) }),
       };
     })
-    .filter((item) => item.distance <= TOKYO_POI_RADIUS_KM)
+    .filter((item) => item.distance <= radiusKm)
     .sort((a, b) => a.distance - b.distance)
     .map((item) => item.suggestion);
 }
@@ -163,11 +176,11 @@ function deduplicate(suggestions: PlaceSuggestion[]) {
   });
 }
 
-export async function searchDestinationSuggestions(rawQuery: string) {
+export async function searchDestinationSuggestions(rawQuery: string, bias?: Coordinates) {
   const query = rawQuery.trim().slice(0, 80);
   if (query.length < 2) return [];
 
-  const cacheKey = `v3:${query.normalize("NFKC").toLocaleLowerCase()}`;
+  const cacheKey = `v6:${query.normalize("NFKC").toLocaleLowerCase()}:${bias ? `${bias.lat.toFixed(2)},${bias.lng.toFixed(2)}` : "tokyo"}`;
   const cached = suggestionCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.suggestions;
 
@@ -175,20 +188,26 @@ export async function searchDestinationSuggestions(rawQuery: string) {
   const areaQuery = matchedIntent
     ? query.replace(matchedIntent.pattern, "").trim() || "东京"
     : query;
-  const travelTimeFeatures = await searchTravelTimeGeocoding(areaQuery, 5);
+  const queryVariants = getQueryVariants(areaQuery);
+  const travelTimeBatches = await Promise.allSettled(
+    queryVariants.map((variant) => searchTravelTimeGeocoding(variant, 6)),
+  );
+  const travelTimeFeatures = travelTimeBatches.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  ).filter((feature, index, all) => all.findIndex((candidate) =>
+    Math.abs(candidate.geometry.coordinates[0] - feature.geometry.coordinates[0]) < 0.00002
+    && Math.abs(candidate.geometry.coordinates[1] - feature.geometry.coordinates[1]) < 0.00002,
+  ) === index).slice(0, 10);
   const travelTimeSuggestions = deduplicate(
     travelTimeFeatures.map((feature, index) =>
       travelTimeSuggestion(feature, index, areaQuery),
     ),
-  ).slice(0, 2);
+  ).slice(0, 4);
   const firstFeature = travelTimeFeatures[0];
-
-  if (!firstFeature) return [];
-
-  const center = {
+  const center = bias ?? (firstFeature ? {
     lng: Number(firstFeature.geometry.coordinates[0]),
     lat: Number(firstFeature.geometry.coordinates[1]),
-  };
+  } : TOKYO_CENTER);
   const positionedTravelTimeSuggestions = travelTimeSuggestions.map((suggestion) => ({
     ...suggestion,
     distanceMeters: Math.round(
@@ -203,18 +222,35 @@ export async function searchDestinationSuggestions(rawQuery: string) {
       ? [POI_INTENTS[0], POI_INTENTS[1]]
       : [];
   const poiResults = await Promise.allSettled(
-    poiIntents.map((intent) =>
-      searchPhotonPoi(intent.photonQuery, intent.category, center),
-    ),
+    [
+      ...getQueryVariants(query).map((variant) =>
+        searchPhotonPoi(variant, matchedIntent?.category ?? "地点 / POI", center, bias ? 10 : 25),
+      ),
+      ...poiIntents.map((intent) =>
+        searchPhotonPoi(intent.photonQuery, intent.category, center),
+      ),
+    ],
   );
   const nearbyPoi = poiResults.flatMap((result) =>
     result.status === "fulfilled" ? result.value.slice(0, 3) : [],
   );
 
+  const normalizedQuery = query.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, "");
+  const normalizedVariants = getQueryVariants(query).map((variant) =>
+    variant.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, ""),
+  );
   const suggestions = deduplicate([
     ...positionedTravelTimeSuggestions,
     ...nearbyPoi,
-  ]).slice(0, 8);
+  ]).sort((a, b) => {
+    const aName = a.name.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, "");
+    const bName = b.name.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, "");
+    const aMatch = normalizedVariants.some((variant) => aName.includes(variant) || variant.includes(aName)) ? 1 : 0;
+    const bMatch = normalizedVariants.some((variant) => bName.includes(variant) || variant.includes(bName)) ? 1 : 0;
+    const aLowQuality = /^\d+$/.test(aName) || aName.length < 2 ? 1 : 0;
+    const bLowQuality = /^\d+$/.test(bName) || bName.length < 2 ? 1 : 0;
+    return bMatch - aMatch || aLowQuality - bLowQuality || (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER);
+  }).slice(0, 10);
   suggestionCache.set(cacheKey, {
     expiresAt: Date.now() + CACHE_TTL_MS,
     suggestions,

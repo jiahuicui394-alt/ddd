@@ -5,13 +5,17 @@ import type {
   NearbyStation,
   ReachableStation,
 } from "./commute-types";
-import { COMMUTE_BUFFER_MINUTES } from "./commute-policy";
+import {
+  COMMUTE_BUFFER_MINUTES,
+  MAX_DESTINATION_WALK_MINUTES,
+} from "./commute-policy";
 import { getTokyoStations, type TokyoStation } from "./station-catalog";
 
 const TRAVELTIME_API_BASE = "https://api.traveltimeapp.com/v4";
 const DESTINATION_ID = "destination";
 const WALKING_SEARCH_ID = "nearby-destination-stations";
 const TRANSIT_SEARCH_ID = "reachable-tokyo-stations";
+const MAJOR_HUB_NAMES = ["渋谷", "新宿", "池袋"];
 
 const DESTINATION_GEOCODING_ALIASES: Record<string, string> = {
   东京大学: "東京大学 本郷キャンパス",
@@ -221,6 +225,24 @@ function getDirection(station: TokyoStation, destination: Coordinates): Reachabl
   return lngDelta >= 0 ? "east" : "west";
 }
 
+function getMajorHubAccess(station: TokyoStation, majorHubs: TokyoStation[]) {
+  const nearest = majorHubs
+    .map((hub) => ({
+      hub,
+      distanceKm: haversineKm(
+        { lat: station.latitude, lng: station.longitude },
+        { lat: hub.latitude, lng: hub.longitude },
+      ),
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm)[0];
+  if (!nearest) return { majorHubScore: 0, nearestMajorHub: "", majorHubDistanceKm: 99 };
+  return {
+    majorHubScore: Math.round(Math.max(0, 100 - nearest.distanceKm * 12)),
+    nearestMajorHub: nearest.hub.nameJa,
+    majorHubDistanceKm: Number(nearest.distanceKm.toFixed(1)),
+  };
+}
+
 function getRouteSummary(property: TravelTimeProperty, station: TokyoStation) {
   const parts = property.route?.parts ?? [];
   const transitParts = parts.filter((part) => part.type === "public_transport");
@@ -265,7 +287,7 @@ async function calculateTravelTimes(
         departure_location_ids: nearbyCandidates.map(locationId),
         arrival_location_id: DESTINATION_ID,
         arrival_time: arrivalTime,
-        travel_time: 2700,
+        travel_time: MAX_DESTINATION_WALK_MINUTES * 60,
         properties: ["travel_time", "distance"],
         transportation: { type: "walking" },
       },
@@ -336,6 +358,7 @@ export async function searchExternalProvider(input: SearchInput): Promise<Commut
     arrivalTime,
   );
   const byKey = new Map(stations.map((station) => [station.stationKey, station]));
+  const majorHubs = stations.filter((station) => MAJOR_HUB_NAMES.includes(station.nameJa));
   const walkingResult = matrix.results?.find((result) => result.search_id === WALKING_SEARCH_ID);
   const transitResult = matrix.results?.find((result) => result.search_id === TRANSIT_SEARCH_ID);
 
@@ -353,7 +376,9 @@ export async function searchExternalProvider(input: SearchInput): Promise<Commut
         accent: stationAccent(index),
       };
     })
-    .filter((station): station is NearbyStation => station !== null)
+    .filter((station): station is NearbyStation =>
+      station !== null && station.walkingMinutes <= MAX_DESTINATION_WALK_MINUTES,
+    )
     .sort((a, b) => a.walkingMinutes - b.walkingMinutes);
 
   const selectedNearbyStation = destinationStation
@@ -373,6 +398,7 @@ export async function searchExternalProvider(input: SearchInput): Promise<Commut
       const route = getRouteSummary(property, station);
       const destinationWalkMinutes = selectedNearbyStation?.walkingMinutes ?? 0;
       const totalMinutes = railMinutes + destinationWalkMinutes;
+      const hubAccess = getMajorHubAccess(station, majorHubs);
       return {
         id: station.stationKey,
         name: station.nameZh,
@@ -393,6 +419,7 @@ export async function searchExternalProvider(input: SearchInput): Promise<Commut
         propertyCount: 0,
         bestPropertyWalkMinutes: 0,
         bestDoorToDoorMinutes: totalMinutes,
+        ...hubAccess,
         direction: getDirection(station, destination.coords),
       };
     })
@@ -400,6 +427,7 @@ export async function searchExternalProvider(input: SearchInput): Promise<Commut
 
   const accessStationAsOrigin: ReachableStation[] = destinationStation && selectedNearbyStation
     ? [{
+        ...getMajorHubAccess(destinationStation, majorHubs),
         id: destinationStation.stationKey,
         name: destinationStation.nameZh,
         nameJa: destinationStation.nameJa,

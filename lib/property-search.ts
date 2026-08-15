@@ -29,6 +29,12 @@ type PropertyStationRow = {
     building_age_years: number;
     floor: number;
     image_url: string | null;
+    source_url: string | null;
+    nearest_supermarket_walk_minutes: number | null;
+    supermarkets_within_10min: number | null;
+    convenience_stores_within_10min: number | null;
+    restaurants_within_10min: number | null;
+    lifestyle_data_source: "generated_mock" | "real_poi" | null;
     available: boolean;
   };
 };
@@ -73,7 +79,10 @@ export async function findMatchingProperties(
       station:stations!inner(station_key, name_ja, name_zh),
       property:properties!inner(
         id, slug, title, address, monthly_rent_yen, management_fee_yen,
-        layout, area_sqm, building_age_years, floor, image_url, available
+        layout, area_sqm, building_age_years, floor, image_url, source_url,
+        nearest_supermarket_walk_minutes, supermarkets_within_10min,
+        convenience_stores_within_10min, restaurants_within_10min,
+        lifestyle_data_source, available
       )
     `)
     .eq("property.available", true)
@@ -106,6 +115,14 @@ export async function findMatchingProperties(
       buildingAgeYears: row.property.building_age_years,
       floor: row.property.floor,
       imageUrl: row.property.image_url,
+      sourceUrl: row.property.source_url,
+      lifestyle: {
+        nearestSupermarketWalkMinutes: row.property.nearest_supermarket_walk_minutes,
+        supermarketsWithin10Minutes: row.property.supermarkets_within_10min,
+        convenienceStoresWithin10Minutes: row.property.convenience_stores_within_10min,
+        restaurantsWithin10Minutes: row.property.restaurants_within_10min,
+        dataSource: row.property.lifestyle_data_source,
+      },
       station: {
         key: row.station.station_key,
         name: row.station.name_zh,
@@ -150,8 +167,8 @@ export async function findMatchingProperties(
     })
     .sort(
       (a, b) =>
-        (a.bestDoorToDoorMinutes * 4 + a.totalMinutes + a.transfers * 4) -
-          (b.bestDoorToDoorMinutes * 4 + b.totalMinutes + b.transfers * 4) ||
+        (a.bestDoorToDoorMinutes * 4 + a.totalMinutes + a.transfers * 4 - a.majorHubScore * 0.035) -
+          (b.bestDoorToDoorMinutes * 4 + b.totalMinutes + b.transfers * 4 - b.majorHubScore * 0.035) ||
         a.bestDoorToDoorMinutes - b.bestDoorToDoorMinutes ||
         a.transfers - b.transfers ||
         a.walkingMinutes - b.walkingMinutes,

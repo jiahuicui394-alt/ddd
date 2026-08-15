@@ -8,11 +8,26 @@ import type {
   PlaceSuggestion,
   ReachableStation,
 } from "@/lib/commute-types";
+import HousingDnaTest from "@/app/components/housing-dna-test";
+import { HOUSING_CALIBRATION_PROPERTIES } from "@/lib/housing-calibration";
+import { PAGE_COPY, type Locale } from "@/lib/i18n";
 import {
   getLineColor,
   getLineShortName,
   getLineStationOrder,
 } from "@/lib/tokyo-line-order";
+import {
+  DEFAULT_HBTI_ANSWERS,
+  deriveHbtiProfile,
+  rankProperties,
+  scoreProperties,
+} from "@/lib/housing-scoring";
+import type {
+  HousingPreferenceKey,
+  PreferenceProfile,
+  RankingMode,
+  ScoredProperty,
+} from "@/lib/housing-scoring";
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 
@@ -138,7 +153,57 @@ function Icon({ name, size = 20 }: { name: "pin" | "clock" | "train" | "walk" | 
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
+function localizeReason(reason: string, locale: Locale) {
+  if (locale === "zh") return reason;
+  const translations: Record<string, [string, string]> = {
+    "通勤优秀": ["通勤が優秀", "Excellent commute"], "通勤符合预算": ["通勤条件に合う", "Commute fits"],
+    "性价比高": ["コスパが高い", "Great value"], "总月费可接受": ["月額が適正", "Affordable monthly cost"],
+    "房屋条件匹配": ["住まい条件に合う", "Housing fit"], "房屋条件较均衡": ["条件のバランスが良い", "Balanced home"],
+    "离车站近": ["駅に近い", "Close to station"], "到站距离可接受": ["駅徒歩が許容範囲", "Manageable station walk"],
+    "生活便利 Demo 表现好": ["生活利便性 Demo が良好", "Strong demo amenities"], "生活数据为 Demo": ["生活データは Demo", "Demo amenity data"],
+  };
+  return translations[reason]?.[locale === "ja" ? 0 : 1] ?? reason;
+}
+
+function getWhyMatched(property: ScoredProperty, profile: PreferenceProfile, locale: Locale, destination: string) {
+  const priorities = (Object.keys(profile.weights) as HousingPreferenceKey[])
+    .sort((left, right) => profile.weights[right] - profile.weights[left]);
+  const detail: Record<Locale, Record<HousingPreferenceKey, [string, string]>> = {
+    zh: {
+      commute: ["💚 你很重视通勤", `→ 到 ${destination} 门到门只需 ${property.commute.finalMinutes} 分钟`],
+      price: ["💚 你希望控制每月支出", `→ 房租与管理费合计 ¥${(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}`],
+      housing: ["💚 你重视房间的舒适度", `→ ${property.layout} · ${property.areaSqm}㎡ · 築${property.buildingAgeYears}年`],
+      station: ["💚 你希望轻松到达车站", `→ ${property.station.name}站步行 ${property.station.walkingMinutes} 分钟`],
+      lifestyle: ["💚 你重视周边生活", `→ 10 分钟内有 ${property.lifestyle.supermarketsWithin10Minutes ?? 0} 家超市和 ${property.lifestyle.restaurantsWithin10Minutes ?? 0} 家餐厅（Demo）`],
+    },
+    ja: {
+      commute: ["💚 通勤を重視しています", `→ ${destination} までドアツードア ${property.commute.finalMinutes}分`],
+      price: ["💚 毎月の費用を重視しています", `→ 家賃・管理費合計 ¥${(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}`],
+      housing: ["💚 部屋の快適さを重視しています", `→ ${property.layout} · ${property.areaSqm}㎡ · 築${property.buildingAgeYears}年`],
+      station: ["💚 駅までの移動を重視しています", `→ ${property.station.nameJa}駅 徒歩${property.station.walkingMinutes}分`],
+      lifestyle: ["💚 周辺の暮らしを重視しています", `→ 徒歩10分内にスーパー${property.lifestyle.supermarketsWithin10Minutes ?? 0}件・飲食店${property.lifestyle.restaurantsWithin10Minutes ?? 0}件（Demo）`],
+    },
+    en: {
+      commute: ["💚 You care about commute", `→ Only ${property.commute.finalMinutes} min door to door to ${destination}`],
+      price: ["💚 You care about monthly cost", `→ ¥${(property.monthlyRentYen + property.managementFeeYen).toLocaleString()} including management fee`],
+      housing: ["💚 You value room comfort", `→ ${property.layout} · ${property.areaSqm}㎡ · ${property.buildingAgeYears} years old`],
+      station: ["💚 You value easy station access", `→ ${property.station.walkingMinutes}-min walk to ${property.station.nameJa}`],
+      lifestyle: ["💚 You value neighborhood life", `→ ${property.lifestyle.supermarketsWithin10Minutes ?? 0} markets and ${property.lifestyle.restaurantsWithin10Minutes ?? 0} restaurants within 10 min (Demo)`],
+    },
+  };
+  const rows = priorities.slice(0, 2).map((key) => detail[locale][key]);
+  if (property.buildingAgeYears > profile.targets.maxBuildingAgeYears) {
+    rows.push(locale === "zh"
+      ? ["⚠️ 你偏爱更新的房子", `→ 这套房築${property.buildingAgeYears}年`]
+      : locale === "ja"
+        ? ["⚠️ より新しい部屋が好みです", `→ この物件は築${property.buildingAgeYears}年`]
+        : ["⚠️ You prefer newer homes", `→ This home is ${property.buildingAgeYears} years old`]);
+  }
+  return rows;
+}
+
 export default function Home() {
+  const [locale, setLocale] = useState<Locale>("zh");
   const [destination, setDestination] = useState("东京大学");
   const [maxMinutes, setMaxMinutes] = useState(35);
   const [result, setResult] = useState<CommuteSearchResponse>(initialResult);
@@ -151,6 +216,26 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [accessStationLoadingId, setAccessStationLoadingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [locationBias, setLocationBias] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [preferenceProfile, setPreferenceProfile] = useState<PreferenceProfile>(() =>
+    deriveHbtiProfile({ ...DEFAULT_HBTI_ANSWERS }, HOUSING_CALIBRATION_PROPERTIES),
+  );
+  const [dnaApplied, setDnaApplied] = useState(false);
+  const [rankingMode, setRankingMode] = useState<RankingMode>("for-you");
+  const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null);
+  const copy = PAGE_COPY[locale];
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("commute-locale") as Locale | null;
+    const detected = navigator.language.startsWith("ja") ? "ja" : navigator.language.startsWith("zh") ? "zh" : "en";
+    setLocale(saved && ["zh", "ja", "en"].includes(saved) ? saved : detected);
+  }, []);
+
+  function changeLocale(next: Locale) {
+    setLocale(next);
+    window.localStorage.setItem("commute-locale", next);
+  }
 
   const selectedDestinationStation = useMemo(
     () => result.nearbyStations.find(
@@ -171,12 +256,19 @@ export default function Home() {
     ),
     [result.reachableStations, selectedDestinationStation],
   );
-  const visibleProperties = useMemo(
-    () => selected
-      ? result.properties.filter((property) => property.station.key === selected.id)
-      : result.properties,
-    [result.properties, selected],
+  const scoredProperties = useMemo(
+    () => scoreProperties(
+      result.properties,
+      result.reachableStations,
+      preferenceProfile,
+    ),
+    [preferenceProfile, result.properties, result.reachableStations],
   );
+  const rankedProperties = useMemo(
+    () => rankProperties(scoredProperties, rankingMode),
+    [rankingMode, scoredProperties],
+  );
+  const visibleProperties = rankedProperties;
 
   useEffect(() => {
     const query = destination.trim();
@@ -190,11 +282,12 @@ export default function Home() {
     const timer = window.setTimeout(async () => {
       setSuggestionsLoading(true);
       try {
-        const response = await fetch(apiUrl(`/api/places?q=${encodeURIComponent(query)}`), {
+        const biasParams = locationBias ? `&lat=${locationBias.lat}&lng=${locationBias.lng}` : "";
+        const response = await fetch(apiUrl(`/api/places?q=${encodeURIComponent(query)}${biasParams}`), {
           signal: controller.signal,
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "地点搜索失败");
+        if (!response.ok) throw new Error(data.error || copy.exactRequired);
         setPlaceSuggestions(data.suggestions ?? []);
         setShowSuggestions(true);
       } catch (suggestionError) {
@@ -210,7 +303,24 @@ export default function Home() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [destination, selectedPlace]);
+  }, [copy.exactRequired, destination, locationBias, selectedPlace]);
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) return;
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationBias({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationLoading(false);
+        setShowSuggestions(true);
+      },
+      () => {
+        setLocationLoading(false);
+        setError(locale === "ja" ? "現在地を取得できませんでした。" : locale === "en" ? "Could not access your location." : "无法获取当前位置。");
+      },
+      { enableHighAccuracy: true, timeout: 8_000, maximumAge: 60_000 },
+    );
+  }
 
   function choosePlace(place: PlaceSuggestion) {
     setDestination(place.name);
@@ -222,8 +332,25 @@ export default function Home() {
 
   function chooseStation(station: ReachableStation) {
     setSelected(station);
+    setExpandedPropertyId(null);
     window.setTimeout(() => {
       document.getElementById("property-results")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  }
+
+  function completeHousingDna(profile: PreferenceProfile) {
+    setPreferenceProfile(profile);
+    setDnaApplied(true);
+    setRankingMode("for-you");
+    setExpandedPropertyId(null);
+  }
+
+  function continueAfterHousingDna() {
+    window.setTimeout(() => {
+      document.getElementById(result.reachableStations.length > 0 ? "property-results" : "top")?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
@@ -257,6 +384,7 @@ export default function Home() {
     setAccessStationLoadingId(station.id);
     setError("");
     setSelected(null);
+    setExpandedPropertyId(null);
 
     try {
       const data = await requestCommute(station.id);
@@ -276,15 +404,22 @@ export default function Home() {
 
   async function handleSearch(event: FormEvent) {
     event.preventDefault();
+    if (!selectedPlace || selectedPlace.name !== destination.trim()) {
+      setError(copy.exactRequired);
+      setShowSuggestions(true);
+      return;
+    }
     setLoading(true);
     setError("");
     setSelected(null);
+    setExpandedPropertyId(null);
     setShowSuggestions(false);
     setShowPlaceMap(false);
 
     try {
       const data = await requestCommute();
       setResult(data);
+      window.setTimeout(() => document.getElementById(dnaApplied ? "property-results" : "housing-dna")?.scrollIntoView({ behavior: "smooth", block: "start" }), 140);
     } catch (searchError) {
       setError(searchError instanceof Error ? searchError.message : "搜索失败，请重试。");
     } finally {
@@ -301,21 +436,25 @@ export default function Home() {
           <small>COMMUTE FINDER</small>
         </a>
         <div className="nav-meta">
-          <span className={`source-badge ${result.source}`}><i />{result.source === "api" ? "实时 API" : "演示数据"}</span>
+          <div className="language-switch" aria-label="Language">
+            {(["zh", "ja", "en"] as Locale[]).map((item) => <button type="button" className={locale === item ? "active" : ""} onClick={() => changeLocale(item)} key={item}>{item === "zh" ? "中" : item === "ja" ? "日" : "EN"}</button>)}
+          </div>
+          <span className={`source-badge ${result.source}`}><i />{result.source === "api" ? copy.liveApi : copy.demo}</span>
           <span className="city-pill">TOKYO · 東京</span>
         </div>
       </nav>
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <div className="eyebrow"><Icon name="spark" size={16} /> 从通勤时间，找到适合生活的站</div>
-          <h1>住在哪里，<br/><em>不只看距离。</em></h1>
-          <p>输入每天要去的地点和理想通勤时间，一次看懂目的地附近车站与可选择的居住区域。</p>
+          <div className="eyebrow"><Icon name="spark" size={16} /> {copy.eyebrow}</div>
+          <h1>{copy.heroTitle}<br/><em>{copy.heroAccent}</em></h1>
+          <p>{copy.heroBody}</p>
         </div>
 
         <form className="search-panel" onSubmit={handleSearch}>
+          <div className="parallel-feature-label hero-tool-label"><span>01</span><div><strong>{copy.tool1}</strong><small>{copy.tool1Hint}</small></div></div>
           <label className="destination-label">
-            <span>目的地</span>
+            <span>{copy.destination}</span>
             <div
               className="destination-search"
               onBlur={(event) => {
@@ -333,7 +472,7 @@ export default function Home() {
                     setSelectedPlace(null);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                  placeholder="例如：池袋、东京大学、池袋麦当劳"
+                  placeholder={copy.destinationPlaceholder}
                   autoComplete="off"
                   aria-autocomplete="list"
                   aria-expanded={showSuggestions}
@@ -341,11 +480,12 @@ export default function Home() {
                 />
                 {suggestionsLoading && <span className="suggestion-spinner" aria-label="正在搜索地点" />}
               </div>
+              <button type="button" className={`location-bias-button ${locationBias ? "active" : ""}`} onClick={useCurrentLocation} disabled={locationLoading}>{locationLoading ? copy.locating : locationBias ? `✓ ${copy.useLocation}` : copy.useLocation}</button>
               {showSuggestions && (placeSuggestions.length > 0 || suggestionsLoading) && (
                 <div className="place-suggestions" role="listbox">
                   <div className="suggestion-heading">
-                    <span>选择准确地点</span>
-                    <small>地址 / 车站 / 附近 POI</small>
+                    <span>{copy.chooseExact}</span>
+                    <small>{copy.addressPoi}</small>
                   </div>
                   {placeSuggestions.map((place) => (
                     <button
@@ -369,21 +509,21 @@ export default function Home() {
                       </span>
                     </button>
                   ))}
-                  <div className="suggestion-source">地点：TravelTime · POI：OpenStreetMap / Photon</div>
+                  <div className="suggestion-source">{copy.suggestionSource}</div>
                 </div>
               )}
               {selectedPlace && (
                 <>
                   <div className="selected-place">
                     <Icon name="pin" size={14} />
-                    <span><strong>已选择准确定位</strong>{selectedPlace.address}</span>
+                    <span><strong>{copy.selectedExact}</strong>{selectedPlace.address}</span>
                     <span className="selected-place-actions">
-                      <button type="button" onClick={() => setShowPlaceMap((visible) => !visible)}>{showPlaceMap ? "收起地图" : "地图确认"}</button>
+                      <button type="button" onClick={() => setShowPlaceMap((visible) => !visible)}>{showPlaceMap ? copy.mapClose : copy.mapConfirm}</button>
                       <button type="button" onClick={() => {
                         setSelectedPlace(null);
                         setShowPlaceMap(false);
                         setShowSuggestions(true);
-                      }}>更换</button>
+                      }}>{copy.change}</button>
                     </span>
                   </div>
                   {showPlaceMap && (
@@ -401,44 +541,55 @@ export default function Home() {
             </div>
           </label>
           <label>
-            <span>最长通勤时间</span>
+            <span>{copy.maxCommute}</span>
             <div className="field time-field">
               <Icon name="clock" />
               <input type="number" min="10" max="90" value={maxMinutes} onChange={(event) => setMaxMinutes(Number(event.target.value))} />
-              <b>分钟以内</b>
+              <b>{copy.withinMinutes}</b>
             </div>
           </label>
           <button type="submit" disabled={loading}>
-            <Icon name="search" />{loading ? "正在计算…" : "寻找通勤圈"}
+            <Icon name="search" />{loading ? copy.searching : copy.search}
           </button>
-          <p className="form-hint">门到门时间 = 房源步行 + 铁路 / 换乘 + 到达后步行，并预留 3 分钟缓冲</p>
+          <p className="form-hint">{copy.formHint}</p>
         </form>
       </section>
 
       {error && <div className="error-banner">{error}</div>}
 
+      <div className="standalone-dna-shell">
+        <div className="parallel-feature-label"><span>02</span><div><strong>{copy.tool2}</strong><small>{copy.tool2Hint}</small></div></div>
+        <HousingDnaTest
+          locale={locale}
+          hasSearchResults={result.reachableStations.length > 0}
+          onComplete={completeHousingDna}
+          onRestart={() => setDnaApplied(false)}
+          onContinue={continueAfterHousingDna}
+        />
+      </div>
+
       {result.reachableStations.length > 0 && (
         <section className="results-shell">
           <header className="result-heading">
             <div>
-              <span className="section-kicker">SEARCH RESULT</span>
-              <h2>{result.destination.name} · {result.requestedMinutes} 分钟通勤圈</h2>
-              <p>{result.destination.subtitle}　<span>数据更新时间：刚刚</span></p>
+              <span className="section-kicker">{copy.searchResult}</span>
+              <h2>{result.destination.name} · {result.requestedMinutes} {copy.minutes}</h2>
+              <p>{result.destination.subtitle}</p>
             </div>
             <div className="summary-stats">
-              <div><strong>{result.reachableStations.length}</strong><span>推荐车站</span></div>
-              <div><strong>{result.properties.length}</strong><span>符合房源</span></div>
-              <div><strong>{lineCount}</strong><span>覆盖线路</span></div>
-              <div><strong>{result.reachableStations[0]?.bestDoorToDoorMinutes}</strong><span>最快门到门</span></div>
+              <div><strong>{result.reachableStations.length}</strong><span>{copy.recommendedStations}</span></div>
+              <div><strong>{result.properties.length}</strong><span>{copy.matchingHomes}</span></div>
+              <div><strong>{lineCount}</strong><span>{copy.coveredLines}</span></div>
+              <div><strong>{result.reachableStations[0]?.bestDoorToDoorMinutes}</strong><span>{copy.fastest}</span></div>
             </div>
           </header>
 
-          {result.note && <div className="demo-note"><Icon name="spark" size={16}/>{result.note}</div>}
+          {result.note && <div className="demo-note"><Icon name="spark" size={16}/>{locale === "zh" ? result.note : locale === "ja" ? "TravelTime によるリアルタイム計算 · 平日9:00到着想定" : "Live TravelTime calculation · weekday 9:00 arrival"}</div>}
 
           <div className="content-grid">
             <section className="nearby-card">
               <div className="card-heading">
-                <div><span className="section-kicker">DESTINATION ACCESS</span><h3>目的地附近车站</h3></div>
+                <div><span className="section-kicker">DESTINATION ACCESS</span><h3>{copy.destinationAccess}</h3></div>
                 <span className="mini-pin"><Icon name="pin" size={18}/></span>
               </div>
               <div className="destination-node">
@@ -456,23 +607,23 @@ export default function Home() {
                     aria-pressed={result.selectedNearbyStationId === station.id}
                   >
                     <i style={{ background: station.accent }} />
-                    <div className="station-copy"><strong>{station.name}</strong><small>{station.nameJa}</small><span>{station.lines.join(" · ")}</span></div>
+                    <div className="station-copy"><strong>{locale === "zh" ? station.name : station.nameJa}</strong><small>{locale === "zh" ? station.nameJa : station.name}</small><span>{station.lines.join(" · ")}</span></div>
                     <div className="walk-time"><Icon name="walk" size={18}/><strong>{station.walkingMinutes}</strong><span>min</span></div>
-                    <b className="access-action">{accessStationLoadingId === station.id ? "计算中…" : result.selectedNearbyStationId === station.id ? "已选" : "选择 →"}</b>
+                    <b className="access-action">{accessStationLoadingId === station.id ? copy.calculating : result.selectedNearbyStationId === station.id ? copy.chosen : copy.choose}</b>
                   </button>
                 ))}
               </div>
-              <p className="walking-note"><Icon name="walk" size={15}/> 点击一个入口站，右侧会按该站线路重新计算；这里的步行时间会完整计入通勤预算。</p>
+              <p className="walking-note"><Icon name="walk" size={15}/> {copy.accessNote}</p>
             </section>
 
             <section className="commute-map-card" id="commute-lines">
               <div className="card-heading">
-                <div><span className="section-kicker">COMMUTE LINES</span><h3>{selectedDestinationStation ? `${selectedDestinationStation.name}站沿线可选车站` : "先选择目的地入口站"}</h3></div>
-                <span className="map-legend"><i/> 亮色站点可选择</span>
+                <div><span className="section-kicker">{copy.commuteLines}</span><h3>{selectedDestinationStation ? `${selectedDestinationStation.name}` : copy.chooseAccess}</h3></div>
+                <span className="map-legend"><i/> {copy.selectable}</span>
               </div>
               <p className="line-map-intro">{selectedDestinationStation
-                ? `当前按 ${selectedDestinationStation.lines.join(" · ")} 筛选：候选站到${selectedDestinationStation.name}的铁路时间 + ${selectedDestinationStation.name}到目的地步行 ${selectedDestinationStation.walkingMinutes} 分钟 + 房源步行，必须在预算内。`
-                : "请先在左侧点击一个目的地附近车站；之后这里只展示该入口站沿线且满足门到门预算的车站。"}</p>
+                ? locale === "zh" ? `按 ${selectedDestinationStation.lines.join(" · ")} 筛选，铁路、两端步行都计入预算。` : locale === "ja" ? `${selectedDestinationStation.lines.join(" · ")} 沿線で、電車と両端の徒歩をすべて通勤時間に含めます。` : `Filtered to ${selectedDestinationStation.lines.join(" · ")}; rail and both walking segments count toward the limit.`
+                : copy.accessEmpty}</p>
               {selectedDestinationStation ? <div className="rail-map">
                 {railGroups.map((group) => (
                   <article
@@ -494,14 +645,14 @@ export default function Home() {
                           onClick={() => chooseStation(node.station!)}
                         >
                           <i />
-                          <strong>{node.station.name}</strong>
-                          <small>{node.station.bestDoorToDoorMinutes} min · {node.station.propertyCount} 套</small>
+                          <strong>{locale === "zh" ? node.station.name : node.station.nameJa}</strong>
+                          <small>{node.station.bestDoorToDoorMinutes} min · {node.station.propertyCount} {locale === "zh" ? "套" : locale === "ja" ? "件" : "homes"}</small>
                         </button>
                       ) : (
                         <span className="rail-station context" key={`${group.line}:${node.nameJa}:${index}`}>
                           <i />
                           <strong>{node.nameJa}</strong>
-                          <small>沿线站</small>
+                          <small>{locale === "zh" ? "沿线站" : locale === "ja" ? "沿線駅" : "line station"}</small>
                         </span>
                       ))}
                       <span className="rail-more">•••</span>
@@ -511,32 +662,32 @@ export default function Home() {
               </div> : (
                 <div className="access-station-empty">
                   <Icon name="train" size={22}/>
-                  <span>请先点击左侧的东大前、根津或本乡三丁目等入口站</span>
+                  <span>{copy.accessEmpty}</span>
                 </div>
               )}
               <div className={`route-detail ${selected ? "visible" : ""}`}>
                 {selected ? <>
-                  <div><span>选择车站</span><strong>{selected.name} <small>{selected.nameJa}</small></strong></div>
+                  <div><span>{copy.stationOptions}</span><strong>{selected.name} <small>{selected.nameJa}</small></strong></div>
                   <Icon name="arrow" />
-                  <div className="route-copy"><span>{selected.route}</span><strong>房源步行 {selected.bestPropertyWalkMinutes} 分 + {selectedDestinationStation ? `${selected.name}到${selectedDestinationStation.name}再步行到目的地` : "车站到目的地"} {selected.totalMinutes} 分 = 门到门 {selected.bestDoorToDoorMinutes} 分</strong></div>
-                </> : <span>选择一个亮色车站，即可查看并跳转到附近房源</span>}
+                  <div className="route-copy"><span>{selected.route}</span><strong>{copy.walk} {selected.bestPropertyWalkMinutes} {copy.minutes} + rail {selected.totalMinutes} {copy.minutes} = {selected.bestDoorToDoorMinutes} {copy.minutes}</strong></div>
+                </> : <span>{copy.selectable}</span>}
               </div>
             </section>
           </div>
 
           <section className="station-results">
             <div className="list-heading">
-              <div><span className="section-kicker">STATION OPTIONS</span><h3>优先推荐车站</h3></div>
-              <span>按最短门到门时间排序 · 最多 16 站</span>
+              <div><span className="section-kicker">{copy.stationOptions}</span><h3>{copy.priorityStations}</h3></div>
+              <span>{copy.stationSort}</span>
             </div>
             <div className="station-table">
               {result.reachableStations.map((station, index) => (
                 <button type="button" key={station.id} className="station-row" onClick={() => chooseStation(station)}>
                   <span className="rank">{String(index + 1).padStart(2, "0")}</span>
-                  <span className="row-station"><strong>{station.name}</strong><small>{station.nameJa}</small></span>
-                  <span className="line-tags">{station.lines.slice(0, 2).map((line) => <i key={line}>{line}</i>)}</span>
-                  <span className="route-summary"><small>房源步行 {station.bestPropertyWalkMinutes} 分 · 车站至目的地 {station.totalMinutes} 分</small><strong>{station.transfers === 0 ? "直达 / 步行" : `${station.transfers} 次换乘`} · 含终点步行</strong></span>
-                  <span className="rent-hint">{station.rentHint}</span>
+                  <span className="row-station"><strong>{locale === "zh" ? station.name : station.nameJa}</strong><small>{locale === "zh" ? station.nameJa : station.name}</small></span>
+                  <span className="line-tags">{station.lines.slice(0, 2).map((line) => <i key={line}>{line}</i>)}{station.nearestMajorHub && <i className="hub-access-tag">{locale === "zh" ? "距" : locale === "ja" ? "最寄" : "near"} {station.nearestMajorHub} {station.majorHubDistanceKm}km</i>}</span>
+                  <span className="route-summary"><small>{copy.walk} {station.bestPropertyWalkMinutes} {copy.minutes} · {station.totalMinutes} {copy.minutes}</small><strong>{copy.transfers} {station.transfers}</strong></span>
+                  <span className="rent-hint">{station.propertyCount} {locale === "zh" ? "套 Demo 房源" : locale === "ja" ? "件のDemo物件" : "demo homes"}</span>
                   <span className="total-time"><strong>{station.bestDoorToDoorMinutes}</strong><small>min</small><Icon name="arrow" size={17}/></span>
                 </button>
               ))}
@@ -545,41 +696,93 @@ export default function Home() {
 
           <section className="property-results" id="property-results">
             <div className="list-heading property-heading">
-              <div><span className="section-kicker">SUPABASE LISTINGS</span><h3>符合最终通勤时间的房源</h3></div>
-              {selected ? (
-                <span className="property-station-filter">
-                  <i /> 正在查看 {selected.name}站 · {visibleProperties.length} 套
-                  <button type="button" onClick={() => setSelected(null)}>查看全部</button>
-                </span>
-              ) : (
-                <span className="database-badge"><i /> Supabase 已连接</span>
-              )}
+              <div><span className="section-kicker">ROOMANCE · ROOM + ROMANCE</span><h3>Your Best Matches</h3></div>
+              <span className="database-badge"><i /> {visibleProperties.length} · {copy.supabaseConnected}</span>
             </div>
-            <p className="property-explainer">最终时间 = 房源步行到站 + 铁路 / 换乘 + 到达后步行。仅保留不超过 {result.requestedMinutes - result.commuteBufferMinutes} 分钟的结果，并额外预留 {result.commuteBufferMinutes} 分钟缓冲。</p>
+            <p className="property-explainer"><strong>Find a room worth falling for.</strong> {copy.rankingHint}</p>
+            {!dnaApplied ? <div className="ranking-locked">
+              <Icon name="spark" size={24}/><div><strong>{copy.lockedTitle}</strong><span>{copy.lockedBody}</span></div><button type="button" onClick={() => document.getElementById("housing-dna")?.scrollIntoView({ behavior: "smooth" })}>{copy.startDna}</button>
+            </div> : <>
+              <div className="ranking-tabs" role="tablist" aria-label="房源排序方式">
+                <button type="button" role="tab" aria-selected={rankingMode === "for-you"} className={rankingMode === "for-you" ? "active" : ""} onClick={() => setRankingMode("for-you")}>
+                  <strong>🏆 For You</strong><span>{copy.forYou}</span>
+                </button>
+                <button type="button" role="tab" aria-selected={rankingMode === "value"} className={rankingMode === "value" ? "active" : ""} onClick={() => setRankingMode("value")}>
+                  <strong>💰 Best Value</strong><span>{copy.bestValue}</span>
+                </button>
+                <button type="button" role="tab" aria-selected={rankingMode === "commute"} className={rankingMode === "commute" ? "active" : ""} onClick={() => setRankingMode("commute")}>
+                  <strong>🚃 Best Commute</strong><span>{copy.bestCommute}</span>
+                </button>
+              </div>
+              <p className="ranking-formula">{rankingMode === "for-you" ? copy.forYou : rankingMode === "value" ? copy.bestValue : copy.bestCommute}</p>
             {visibleProperties.length > 0 ? (
               <div className="property-grid">
-                {visibleProperties.map((property) => (
-                  <article className="property-card" key={property.id}>
+                {visibleProperties.map((property, index) => {
+                  const displayedScore = rankingMode === "value"
+                    ? property.valueScore
+                    : rankingMode === "commute"
+                      ? property.scores.commute
+                      : property.finalScore;
+                  const expanded = expandedPropertyId === property.id;
+                  const routeStation = result.reachableStations.find((station) => station.id === property.station.key);
+                  const railMinutes = routeStation?.transitMinutes ?? Math.max(0, property.commute.stationToDestinationMinutes - (selectedDestinationStation?.walkingMinutes ?? 0));
+                  const destinationWalkMinutes = routeStation?.walkingMinutes ?? selectedDestinationStation?.walkingMinutes ?? 0;
+                  return (
+                  <article className="property-card scored" key={property.id}>
                     <div className="property-image">
-                      {property.imageUrl ? <img src={`${property.imageUrl}?auto=format&fit=crop&w=800&q=75`} alt="" loading="lazy" /> : <span>物件</span>}
-                      <b>{property.layout}</b>
+                      {property.imageUrl ? <img src={`${property.imageUrl}?auto=format&fit=crop&w=900&q=78`} alt={property.title} loading="lazy" /> : <span>DEMO PROPERTY</span>}
+                      <b>MOCK / DEMO</b>
                     </div>
                     <div className="property-body">
-                      <div className="property-title"><div><strong>{property.title}</strong><span>{property.address}</span></div><em>¥{property.monthlyRentYen.toLocaleString()}<small>/月</small></em></div>
-                      <div className="property-specs"><span>{property.areaSqm} m²</span><span>築 {property.buildingAgeYears} 年</span><span>{property.floor}F</span></div>
-                      <div className="commute-breakdown">
-                        <div><Icon name="walk" size={17}/><span>{property.station.name}站步行</span><strong>{property.commute.propertyWalkMinutes} min</strong></div>
-                        <Icon name="arrow" size={16}/>
-                        <div><Icon name="train" size={17}/><span>车站至目的地</span><strong>{property.commute.stationToDestinationMinutes} min</strong></div>
-                        <div className="final-commute"><span>最终通勤</span><strong>{property.commute.finalMinutes}<small> min</small></strong></div>
+                      <div className="property-price-score">
+                        <em>¥{property.monthlyRentYen.toLocaleString()}<small>/{locale === "zh" ? "月" : locale === "ja" ? "月" : "mo"}</small></em>
+                        <strong>{displayedScore}<small>% Match {index === 0 ? "🏆" : ""}</small></strong>
                       </div>
+                      <div className="property-title"><div><strong>{property.title}</strong><span>{property.address}</span></div></div>
+                      <div className="property-specs"><span>{property.layout}</span><span>{property.areaSqm}㎡</span><span>{locale === "en" ? `${property.buildingAgeYears} years old` : `築${property.buildingAgeYears}年`}</span><span>{property.floor}F</span></div>
+                      <div className="listing-essentials">
+                        <span><Icon name="walk" size={16}/>{locale === "zh" ? property.station.name : property.station.nameJa} · {copy.walk} {property.station.walkingMinutes} {copy.minutes}</span>
+                        <span><Icon name="train" size={16}/>{result.destination.name} {property.commute.finalMinutes} {copy.minutes} · {copy.transfers} {property.transferCount}</span>
+                      </div>
+                      <div className="commute-segments" aria-label="三段通勤时间">
+                        <div><small>{locale === "zh" ? "家" : locale === "ja" ? "自宅" : "Home"} → {property.station.name}</small><strong>{property.commute.propertyWalkMinutes}<i>{copy.minutes}</i></strong><span>{copy.walk}</span></div>
+                        <b>+</b>
+                        <div><small>{property.station.name} → {locale === "zh" ? "目的地站" : locale === "ja" ? "到着駅" : "Arrival station"}</small><strong>{railMinutes}<i>{copy.minutes}</i></strong><span>{copy.transfers} {property.transferCount}</span></div>
+                        <b>+</b>
+                        <div><small>{locale === "zh" ? "目的地站" : locale === "ja" ? "到着駅" : "Arrival station"} → {result.destination.name}</small><strong>{destinationWalkMinutes}<i>{copy.minutes}</i></strong><span>{copy.walk}</span></div>
+                      </div>
+                      <div className="recommendation-reasons">
+                        {property.recommendationReasons.map((reason) => (
+                          <span key={reason.text} className={reason.tone}>✓ {localizeReason(reason.text, locale)}</span>
+                        ))}
+                      </div>
+                      <button type="button" className="score-toggle" onClick={() => setExpandedPropertyId(expanded ? null : property.id)} aria-expanded={expanded}>
+                        {expanded ? copy.closeDetails : copy.details}<span>{expanded ? "−" : "+"}</span>
+                      </button>
+                      {expanded && (
+                        <div className="listing-details">
+                          <div className="why-matched">
+                            <h5>Why we matched</h5>
+                            {getWhyMatched(property, preferenceProfile, locale, result.destination.name).map(([title, explanation]) => (
+                              <p key={`${title}:${explanation}`}><strong>{title}</strong><span>{explanation}</span></p>
+                            ))}
+                          </div>
+                          <div><span>{copy.managementFee}</span><strong>¥{property.managementFeeYen.toLocaleString()}</strong></div>
+                          <div><span>{copy.monthlyTotal}</span><strong>¥{(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}</strong></div>
+                          <div><span>{copy.nearestMarket}</span><strong>{copy.walk} {property.lifestyle.nearestSupermarketWalkMinutes ?? "—"} {copy.minutes}</strong></div>
+                          <div><span>10 min area</span><strong>Market {property.lifestyle.supermarketsWithin10Minutes ?? "—"} · Store {property.lifestyle.convenienceStoresWithin10Minutes ?? "—"} · Food {property.lifestyle.restaurantsWithin10Minutes ?? "—"}</strong></div>
+                          <p>{locale === "zh" ? "生活设施为确定性 Demo 数据；详细目标值与容忍度仅用于内部匹配。" : locale === "ja" ? "生活施設は決定的なDemoデータです。詳細な目標値と許容範囲は内部マッチだけに使用します。" : "Amenities are deterministic demo data. Detailed targets and tolerances are used only for internal matching."}</p>
+                          {property.sourceUrl ? <a href={property.sourceUrl} target="_blank" rel="noreferrer">{locale === "zh" ? "查看原房源" : locale === "ja" ? "掲載元を見る" : "View source"} ↗</a> : <span className="demo-source">Demo property · no source link</span>}
+                        </div>
+                      )}
                     </div>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="no-properties">这个车站当前没有符合门到门时间的房源。请选择其他推荐站。</div>
-            )}
+              <div className="no-properties">{copy.noProperties}</div>
+            )}</>}
           </section>
         </section>
       )}
@@ -587,12 +790,12 @@ export default function Home() {
       {result.reachableStations.length === 0 && !loading && (
         <section className="empty-state">
           <div className="empty-illustration"><span>35</span><small>min</small></div>
-          <h2>输入地点，开始寻找通勤圈</h2>
-          <p>试试“东京大学”和“35分钟”，立即查看演示结果。</p>
+          <h2>{locale === "zh" ? "输入准确地点，开始寻找通勤圈" : locale === "ja" ? "正確な目的地を入力して通勤圏を検索" : "Enter an exact destination to start"}</h2>
+          <p>{copy.exactRequired}</p>
         </section>
       )}
 
-      <footer><span>よりみち · 通勤圈探索 Demo</span><span>Made for Tokyo life, 2026</span></footer>
+      <footer><span>よりみち · Commute Finder Demo</span><span>Made for Tokyo life, 2026</span></footer>
       <p className="data-credit">TravelTime API · Station data: HeartRails Express · Places: OpenStreetMap / Photon · Housing: MOCK / DEMO</p>
     </main>
   );

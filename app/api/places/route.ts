@@ -19,12 +19,16 @@ export async function GET(request: Request) {
       );
     }
 
-    const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+    const params = new URL(request.url).searchParams;
+    const query = params.get("q")?.trim() ?? "";
     if (query.length < 2) {
       return withCors(request, NextResponse.json({ suggestions: [] }));
     }
 
-    const suggestions = await searchDestinationSuggestions(query);
+    const lat = Number(params.get("lat"));
+    const lng = Number(params.get("lng"));
+    const bias = Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined;
+    const suggestions = await searchDestinationSuggestions(query, bias);
     return withCors(request, NextResponse.json({ suggestions }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "地点搜索失败。";
