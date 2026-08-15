@@ -238,7 +238,7 @@ button.rail-station { cursor: pointer; }
 .property-station-filter > i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .property-station-filter button { padding: 4px 8px; border: 0; border-radius: 99px; color: white; background: var(--green); font-size: 8px; font-weight: 700; cursor: pointer; }
 .property-explainer { margin: 12px 0 20px; color: #7b8985; font-size: 11px; }
-.ranking-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ranking-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .ranking-tabs button { min-height: 64px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: #fafbf8; text-align: left; cursor: pointer; transition: .18s; }
 .ranking-tabs button:hover, .ranking-tabs button.active { border-color: var(--green); background: var(--mint); box-shadow: inset 0 0 0 1px rgba(45,115,103,.1); }
 .ranking-tabs strong, .ranking-tabs span { display: block; }

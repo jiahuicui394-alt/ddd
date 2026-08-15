@@ -246,13 +246,6 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
           <span className="dna-result-label">{text.result}</span>
           <h4>{type[0]}</h4>
           <p>{type[1]}</p>
-          <div className="dna-evidence">
-            {text.evidence.map((item) => <span key={item}>✓ {item}</span>)}
-            <span>{locale === "zh" ? "偏好户型" : locale === "ja" ? "好みの間取り" : "Preferred layout"} · {profile.layoutPreference[0]}</span>
-          </div>
-          <div className="dna-blackbox-note">
-            <span>✓</span><div><strong>{text.blackbox}</strong><small>{text.blackboxHint}</small></div>
-          </div>
           <div className="dna-actions">
             <button type="button" className="secondary-dna" onClick={restart}>{text.restart}</button>
             <button type="button" className="apply-dna" onClick={onContinue}>{hasSearchResults ? text.view : text.goSearch}</button>

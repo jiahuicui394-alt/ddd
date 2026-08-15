@@ -734,9 +734,6 @@ export default function Home() {
                 <button type="button" role="tab" aria-selected={rankingMode === "value"} className={rankingMode === "value" ? "active" : ""} onClick={() => setRankingMode("value")}>
                   <strong>💰 Best Value</strong><span>{copy.bestValue}</span>
                 </button>
-                <button type="button" role="tab" aria-selected={rankingMode === "commute"} className={rankingMode === "commute" ? "active" : ""} onClick={() => setRankingMode("commute")}>
-                  <strong>🚃 Best Commute</strong><span>{copy.bestCommute}</span>
-                </button>
               </div>
               <p className="ranking-formula">{rankingMode === "for-you" ? copy.forYou : rankingMode === "value" ? copy.bestValue : copy.bestCommute}</p>
             {visibleProperties.length > 0 ? (
