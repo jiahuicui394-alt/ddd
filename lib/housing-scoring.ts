@@ -1,4 +1,4 @@
-import type { PropertyMatch, ReachableStation } from "./commute-types";
+import type { CommuteSearchResponse, PropertyMatch, ReachableStation } from "./commute-types";
 
 export type HousingPreferenceKey = "commute" | "price" | "housing" | "station" | "lifestyle";
 export type HousingWeights = Record<HousingPreferenceKey, number>;
@@ -72,6 +72,34 @@ export function applyIdealBudget(
       totalMonthlyCostYen: clamp(idealBudgetYen, 45000, 500000),
     },
   };
+}
+
+export function filterByMaximumBudget(
+  result: CommuteSearchResponse,
+  maxBudgetYen: number,
+): CommuteSearchResponse {
+  const properties = result.properties.filter(
+    (property) => property.monthlyRentYen + property.managementFeeYen <= maxBudgetYen,
+  );
+  const propertiesByStation = new Map<string, PropertyMatch[]>();
+  for (const property of properties) {
+    const stationProperties = propertiesByStation.get(property.station.key) ?? [];
+    stationProperties.push(property);
+    propertiesByStation.set(property.station.key, stationProperties);
+  }
+
+  const reachableStations = result.reachableStations.flatMap((station) => {
+    const stationProperties = propertiesByStation.get(station.id) ?? [];
+    if (stationProperties.length === 0) return [];
+    return [{
+      ...station,
+      propertyCount: stationProperties.length,
+      bestPropertyWalkMinutes: Math.min(...stationProperties.map((property) => property.commute.propertyWalkMinutes)),
+      bestDoorToDoorMinutes: Math.min(...stationProperties.map((property) => property.commute.finalMinutes)),
+    }];
+  });
+
+  return { ...result, properties, reachableStations };
 }
 
 export const HOUSING_DNA_ITEMS: Array<{

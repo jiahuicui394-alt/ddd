@@ -3,6 +3,7 @@ import {
   DEFAULT_HBTI_ANSWERS,
   deriveHbtiProfile,
   applyIdealBudget,
+  filterByMaximumBudget,
   HBTI_QUESTIONS,
   rankProperties,
   scoreProperties,
@@ -37,6 +38,14 @@ const response = await fetch(`${baseUrl}/api/commute`, {
 });
 if (!response.ok) throw new Error(`Commute API failed: ${response.status} ${await response.text()}`);
 const result = await response.json() as CommuteSearchResponse;
+const clientFallbackResult = filterByMaximumBudget(result, 120000);
+if (clientFallbackResult.properties.some(
+  (property) => property.monthlyRentYen + property.managementFeeYen > 120000,
+) || clientFallbackResult.reachableStations.some(
+  (station) => station.propertyCount !== clientFallbackResult.properties.filter((property) => property.station.key === station.id).length,
+)) {
+  throw new Error("Client maximum-budget compatibility filter failed.");
+}
 if (result.properties.length === 0 || result.reachableStations.length === 0) {
   throw new Error("The commute flow did not return stations and properties.");
 }
@@ -235,6 +244,7 @@ console.log(JSON.stringify({
   checks: [
     "commute-filter",
     "maximum-budget-hard-filter",
+    "legacy-api-maximum-budget-fallback",
     "ideal-budget-price-score",
     "precise-building-poi-search",
     "submit-with-top-place-suggestion",

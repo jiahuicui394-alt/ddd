@@ -18,6 +18,7 @@ import {
 } from "@/lib/tokyo-line-order";
 import {
   applyIdealBudget,
+  filterByMaximumBudget,
   DEFAULT_HBTI_ANSWERS,
   deriveHbtiProfile,
   rankProperties,
@@ -415,7 +416,7 @@ export default function Home() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "搜索失败");
-    return data as CommuteSearchResponse;
+    return filterByMaximumBudget(data as CommuteSearchResponse, maxBudgetYen);
   }
 
   async function chooseDestinationStation(station: NearbyStation) {
