@@ -515,7 +515,6 @@ export default function Home() {
         <div className="hero-copy">
           <div className="eyebrow"><Icon name="spark" size={16} /> {copy.eyebrow}</div>
           <h1>{copy.heroTitle}<br/><em>{copy.heroAccent}</em></h1>
-          <p>{copy.heroBody}</p>
         </div>
 
         <form className="search-panel" onSubmit={handleSearch}>
@@ -641,7 +640,7 @@ export default function Home() {
       {error && <div className="error-banner">{error}</div>}
 
       <div className="standalone-dna-shell">
-        <div className="parallel-feature-label"><span>02</span><div><strong>{copy.tool2}</strong><small>{copy.tool2Hint}</small></div></div>
+        <div className="parallel-feature-label"><span>02</span><div><strong>{copy.tool2}</strong></div></div>
         <HousingDnaTest
           locale={locale}
           hasSearchResults={result.reachableStations.length > 0}
@@ -666,8 +665,6 @@ export default function Home() {
               <div><strong>{result.reachableStations[0]?.bestDoorToDoorMinutes}</strong><span>{copy.fastest}</span></div>
             </div>
           </header>
-
-          {result.note && <div className="demo-note"><Icon name="spark" size={16}/>{locale === "zh" ? result.note : locale === "ja" ? "TravelTime によるリアルタイム計算 · 平日9:00到着想定" : "Live TravelTime calculation · weekday 9:00 arrival"}</div>}
 
           <div className="content-grid">
             <section className="nearby-card">
@@ -696,17 +693,12 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-              <p className="walking-note"><Icon name="walk" size={15}/> {copy.accessNote}</p>
             </section>
 
             <section className="commute-map-card" id="commute-lines">
               <div className="card-heading">
                 <div><span className="section-kicker">{copy.commuteLines}</span><h3>{selectedDestinationStation ? `${selectedDestinationStation.name}` : copy.chooseAccess}</h3></div>
-                <span className="map-legend"><i/> {copy.selectable}</span>
               </div>
-              <p className="line-map-intro">{selectedDestinationStation
-                ? locale === "zh" ? `按 ${selectedDestinationStation.lines.join(" · ")} 筛选，铁路、两端步行都计入预算。` : locale === "ja" ? `${selectedDestinationStation.lines.join(" · ")} 沿線で、電車と両端の徒歩をすべて通勤時間に含めます。` : `Filtered to ${selectedDestinationStation.lines.join(" · ")}; rail and both walking segments count toward the limit.`
-                : copy.accessEmpty}</p>
               {selectedDestinationStation ? <div className="rail-map">
                 {railGroups.map((group) => (
                   <article
@@ -762,7 +754,6 @@ export default function Home() {
           <section className="station-results">
             <div className="list-heading">
               <div><span className="section-kicker">{copy.stationOptions}</span><h3>{copy.priorityStations}</h3></div>
-              <span className="station-list-note">{copy.stationSort}<small>{copy.stationProfileDemo}</small></span>
             </div>
             <div className="station-table">
               {result.reachableStations.map((station, index) => (
@@ -790,9 +781,8 @@ export default function Home() {
                 <span className="database-badge"><i /> {visibleProperties.length} · {copy.supabaseConnected}</span>
               )}
             </div>
-            <p className="property-explainer"><strong>Find a room worth falling for.</strong> {copy.rankingHint}</p>
             {!dnaApplied ? <div className="ranking-locked">
-              <Icon name="spark" size={24}/><div><strong>{copy.lockedTitle}</strong><span>{copy.lockedBody}</span></div><button type="button" onClick={() => document.getElementById("housing-dna")?.scrollIntoView({ behavior: "smooth" })}>{copy.startDna}</button>
+              <Icon name="spark" size={24}/><div><strong>{copy.lockedTitle}</strong></div><button type="button" onClick={() => document.getElementById("housing-dna")?.scrollIntoView({ behavior: "smooth" })}>{copy.startDna}</button>
             </div> : <>
               <div className="ranking-tabs" role="tablist" aria-label="房源排序方式">
                 <button type="button" role="tab" aria-selected={rankingMode === "for-you"} className={rankingMode === "for-you" ? "active" : ""} onClick={() => setRankingMode("for-you")}>
@@ -802,7 +792,6 @@ export default function Home() {
                   <strong>💰 Best Value</strong><span>{copy.bestValue}</span>
                 </button>
               </div>
-              <p className="ranking-formula">{rankingMode === "for-you" ? copy.forYou : rankingMode === "value" ? copy.bestValue : copy.bestCommute}</p>
             {visibleProperties.length > 0 ? (
               <div className="property-grid">
                 {visibleProperties.map((property, index) => {

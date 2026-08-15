@@ -42,13 +42,9 @@ const PENALTY_PREFERENCE_KEYS: PenaltyPreferenceKey[] = ["avoid_1r", "avoid_old"
 
 const TEXT = {
   zh: {
-    intro: "排序、20 道生活题与房源直觉选择，共同生成你的住房人格。",
-    independent: "偏好测试与通勤搜索并列，可以先完成任意一个。",
     steps: ["初步排序", "HBTI", "房源 Swipe", "人格结果"],
     priorityTitle: "先排出你最在意的居住条件",
-    priorityHint: "按住 ☰ 上下拖动。这一步只建立初始配比，后续回答会继续校准。",
     specificsTitle: "加入你的具体偏好",
-    specificsHint: "选真正会影响决定的条件。命中会获得奖励，踩中避雷项会降低匹配；具体数值保持黑箱。",
     rewardsTitle: "我特别想要的",
     penaltiesTitle: "我不想妥协的",
     priorityNext: "下一步：HBTI →",
@@ -57,7 +53,6 @@ const TEXT = {
     previous: "← 上一步", next: "下一页 →", finish: "下一步：房源 Swipe →",
     answerAll: "请回答本页的 5 个问题后继续",
     swipeTitle: "凭直觉选择你会不会住",
-    swipeHint: "左滑不喜欢，右滑喜欢；松手后会自动进入下一张。",
     swipeLeft: "不喜欢", swipeRight: "喜欢", demo: "偏好校准 Demo",
     pros: "吸引你的地方", cons: "需要取舍", sampleCommute: "示例通勤",
     result: "你的住房人格", blackbox: "具体配比已作为黑箱保存",
@@ -85,13 +80,9 @@ const TEXT = {
     ],
   },
   ja: {
-    intro: "優先順位、20問の暮らし診断、物件の直感選択から住まいタイプを作ります。",
-    independent: "好み診断と通勤検索は独立しており、どちらからでも始められます。",
     steps: ["優先順位", "HBTI", "物件 Swipe", "タイプ結果"],
     priorityTitle: "住まい選びの優先順位を並べてください",
-    priorityHint: "☰ を押したまま上下にドラッグ。ここで初期バランスを作り、後の回答で調整します。",
     specificsTitle: "具体的な希望を追加",
-    specificsHint: "本当に判断に影響する条件を選択。合致は加点、避けたい条件は減点され、配点は非公開です。",
     rewardsTitle: "特に欲しい条件",
     penaltiesTitle: "避けたい条件",
     priorityNext: "次へ：HBTI →",
@@ -100,7 +91,6 @@ const TEXT = {
     previous: "← 戻る", next: "次へ →", finish: "次へ：物件 Swipe →",
     answerAll: "このページの5問すべてに回答してください",
     swipeTitle: "直感で住みたいか選んでください",
-    swipeHint: "左は好みではない、右は好き。離すと自動で次のカードへ進みます。",
     swipeLeft: "好みではない", swipeRight: "好き", demo: "好み校正 Demo",
     pros: "魅力", cons: "妥協点", sampleCommute: "想定通勤",
     result: "あなたの住まいタイプ", blackbox: "具体的な配分は非公開で保存",
@@ -128,13 +118,9 @@ const TEXT = {
     ],
   },
   en: {
-    intro: "Priority ranking, 20 behavior questions and instinctive home choices create your housing type.",
-    independent: "Preference testing and commute search are independent — start with either one.",
     steps: ["Priorities", "HBTI", "Home Swipe", "Your Type"],
     priorityTitle: "Rank what matters most in your home search",
-    priorityHint: "Hold ☰ and drag vertically. This creates the starting balance; later answers keep calibrating it.",
     specificsTitle: "Add your specific preferences",
-    specificsHint: "Choose what truly affects your decision. Matches earn a hidden reward and deal-breakers receive a hidden penalty.",
     rewardsTitle: "I really want",
     penaltiesTitle: "I want to avoid",
     priorityNext: "Next: HBTI →",
@@ -143,7 +129,6 @@ const TEXT = {
     previous: "← Back", next: "Next →", finish: "Next: Home Swipe →",
     answerAll: "Answer all five questions on this page to continue",
     swipeTitle: "Choose by instinct: would you live here?",
-    swipeHint: "Swipe left to pass or right to like. Releasing automatically opens the next card.",
     swipeLeft: "PASS", swipeRight: "LIKE", demo: "Preference calibration demo",
     pros: "What works", cons: "Trade-offs", sampleCommute: "Sample commute",
     result: "Your Housing Type", blackbox: "Your exact mix is saved as a black box",
@@ -320,8 +305,7 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
   return (
     <section className="housing-dna standalone-dna hbti-test" id="housing-dna">
       <div className="hbti-heading">
-        <div><span>HBTI</span><h3>Housing Behavior Type Indicator</h3><p>{text.intro}</p></div>
-        <small>{text.independent}</small>
+        <div><span>HBTI</span><h3>Housing Behavior Type Indicator</h3></div>
       </div>
       <div className="dna-steps">
         {text.steps.map((item, index) => (
@@ -333,7 +317,7 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
 
       {stage === "priority" && (
         <div className="dna-panel priority-stage">
-          <div className="dna-panel-intro"><div><strong>{text.priorityTitle}</strong><small>{text.priorityHint}</small></div><span>01 / 03</span></div>
+          <div className="dna-panel-intro"><div><strong>{text.priorityTitle}</strong></div><span>01 / 03</span></div>
           <div className="priority-sort-list">
             {priorityOrder.map((key, index) => (
               <div className={`priority-sort-row ${priorityDragIndex === index ? "dragging" : ""}`} data-priority-index={index} key={key}>
@@ -361,7 +345,6 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
           <div className="specific-preferences">
             <div className="specific-preferences-heading">
               <strong>{text.specificsTitle}</strong>
-              <small>{text.specificsHint}</small>
             </div>
             <div className="specific-preference-group">
               <b>{text.rewardsTitle}</b>
@@ -450,7 +433,7 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
 
       {stage === "swipe" && currentSwipeProperty && currentCardCopy && (
         <div className="dna-panel swipe-test">
-          <div className="dna-panel-intro"><div><strong>{text.swipeTitle}</strong><small>{text.swipeHint}</small></div><span>{swipeIndex + 1} / {HOUSING_CALIBRATION_PROPERTIES.length}</span></div>
+          <div className="dna-panel-intro"><div><strong>{text.swipeTitle}</strong></div><span>{swipeIndex + 1} / {HOUSING_CALIBRATION_PROPERTIES.length}</span></div>
           <article
             className={`swipe-card draggable ${swipeDragging ? "dragging" : ""}`}
             style={{ transform: `translateX(${swipeDragX}px) rotate(${swipeDragX / 24}deg)` } as CSSProperties}
