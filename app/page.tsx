@@ -454,9 +454,9 @@ export default function Home() {
   return (
     <main>
       <nav className="topbar">
-        <a className="brand" href="#top" aria-label="Tokyo Commute Finder 首页">
+        <a className="brand" href="#top" aria-label="SUUMATCH 首页">
           <span className="brand-mark"><Icon name="train" size={22} /></span>
-          <span>よりみち</span>
+          <span>SUUMATCH</span>
           <small>COMMUTE FINDER</small>
         </a>
         <div className="nav-meta">
@@ -823,7 +823,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer><span>よりみち · Commute Finder Demo</span><span>Made for Tokyo life, 2026</span></footer>
+      <footer><span>SUUMATCH · Commute Finder Demo</span><span>Made for Tokyo life, 2026</span></footer>
       <p className="data-credit">TravelTime API · Station data: HeartRails Express · Places: OpenStreetMap / Photon · Housing: MOCK / DEMO</p>
     </main>
   );
