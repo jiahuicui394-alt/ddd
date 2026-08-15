@@ -58,6 +58,13 @@ export type PropertyMatch = {
     restaurantsWithin10Minutes: number | null;
     dataSource: "generated_mock" | "real_poi" | null;
   };
+  amenities?: {
+    petFriendly: boolean;
+    bathToiletSeparate: boolean;
+    nearestMajorArea: string | null;
+    majorAreaWalkMinutes: number | null;
+    dataSource: "generated_mock" | "verified" | null;
+  };
   station: {
     key: string;
     name: string;

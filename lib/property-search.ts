@@ -35,6 +35,11 @@ type PropertyStationRow = {
     convenience_stores_within_10min: number | null;
     restaurants_within_10min: number | null;
     lifestyle_data_source: "generated_mock" | "real_poi" | null;
+    pet_friendly: boolean;
+    bath_toilet_separate: boolean;
+    nearest_major_area: string | null;
+    major_area_walk_minutes: number | null;
+    amenity_data_source: "generated_mock" | "verified" | null;
     available: boolean;
   };
 };
@@ -82,7 +87,8 @@ export async function findMatchingProperties(
         layout, area_sqm, building_age_years, floor, image_url, source_url,
         nearest_supermarket_walk_minutes, supermarkets_within_10min,
         convenience_stores_within_10min, restaurants_within_10min,
-        lifestyle_data_source, available
+        lifestyle_data_source, pet_friendly, bath_toilet_separate,
+        nearest_major_area, major_area_walk_minutes, amenity_data_source, available
       )
     `)
     .eq("property.available", true)
@@ -122,6 +128,13 @@ export async function findMatchingProperties(
         convenienceStoresWithin10Minutes: row.property.convenience_stores_within_10min,
         restaurantsWithin10Minutes: row.property.restaurants_within_10min,
         dataSource: row.property.lifestyle_data_source,
+      },
+      amenities: {
+        petFriendly: row.property.pet_friendly,
+        bathToiletSeparate: row.property.bath_toilet_separate,
+        nearestMajorArea: row.property.nearest_major_area,
+        majorAreaWalkMinutes: row.property.major_area_walk_minutes,
+        dataSource: row.property.amenity_data_source,
       },
       station: {
         key: row.station.station_key,

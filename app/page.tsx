@@ -10,7 +10,7 @@ import type {
 } from "@/lib/commute-types";
 import HousingDnaTest from "@/app/components/housing-dna-test";
 import { HOUSING_CALIBRATION_PROPERTIES } from "@/lib/housing-calibration";
-import { PAGE_COPY, type Locale } from "@/lib/i18n";
+import { PAGE_COPY, SPECIFIC_PREFERENCE_COPY, type Locale } from "@/lib/i18n";
 import {
   getLineColor,
   getLineShortName,
@@ -195,7 +195,21 @@ function getWhyMatched(property: ScoredProperty, profile: PreferenceProfile, loc
       lifestyle: ["💚 You value neighborhood life", `→ ${property.lifestyle?.supermarketsWithin10Minutes ?? 0} markets and ${property.lifestyle?.restaurantsWithin10Minutes ?? 0} restaurants within 10 min (Demo)`],
     },
   };
-  const rows = priorities.slice(0, 2).map((key) => detail[locale][key]);
+  const rows: Array<[string, string]> = [];
+  const specificMatch = property.specificPreferenceMatches[0];
+  const specificConflict = property.specificPreferenceConflicts[0];
+  if (specificMatch) {
+    const heading = locale === "zh" ? "💚 命中你的具体偏好" : locale === "ja" ? "💚 具体的な希望に合致" : "💚 Specific preference matched";
+    const area = specificMatch === "walkable_major_area" && property.amenities?.nearestMajorArea
+      ? ` · ${property.amenities.nearestMajorArea} ${property.amenities.majorAreaWalkMinutes} min`
+      : "";
+    rows.push([heading, `→ ${SPECIFIC_PREFERENCE_COPY[locale][specificMatch].result}${area}`]);
+  }
+  rows.push(...priorities.slice(0, specificMatch ? 1 : 2).map((key) => detail[locale][key]));
+  if (specificConflict) {
+    const heading = locale === "zh" ? "⚠️ 命中你的避雷项" : locale === "ja" ? "⚠️ 避けたい条件に該当" : "⚠️ A deal-breaker was triggered";
+    rows.push([heading, `→ ${SPECIFIC_PREFERENCE_COPY[locale][specificConflict].result}`]);
+  }
   if (property.buildingAgeYears > profile.targets.maxBuildingAgeYears) {
     rows.push(locale === "zh"
       ? ["⚠️ 你偏爱更新的房子", `→ 这套房築${property.buildingAgeYears}年`]
@@ -780,8 +794,14 @@ export default function Home() {
                         <div><small>{locale === "zh" ? "目的地站" : locale === "ja" ? "到着駅" : "Arrival station"} → {result.destination.name}</small><strong>{destinationWalkMinutes}<i>{copy.minutes}</i></strong><span>{copy.walk}</span></div>
                       </div>
                       <div className="recommendation-reasons">
-                        {property.recommendationReasons.map((reason) => (
+                        {property.specificPreferenceMatches.slice(0, 2).map((key) => (
+                          <span key={key} className="specific-match">✓ {SPECIFIC_PREFERENCE_COPY[locale][key].result}</span>
+                        ))}
+                        {property.recommendationReasons.slice(0, property.specificPreferenceMatches.length > 0 ? 1 : 2).map((reason) => (
                           <span key={reason.text} className={reason.tone}>✓ {localizeReason(reason.text, locale)}</span>
+                        ))}
+                        {property.specificPreferenceConflicts.slice(0, 1).map((key) => (
+                          <span key={key} className="specific-conflict">△ {SPECIFIC_PREFERENCE_COPY[locale][key].result}</span>
                         ))}
                       </div>
                       <button type="button" className="score-toggle" onClick={() => setExpandedPropertyId(expanded ? null : property.id)} aria-expanded={expanded}>
@@ -799,6 +819,8 @@ export default function Home() {
                           <div><span>{copy.monthlyTotal}</span><strong>¥{(property.monthlyRentYen + property.managementFeeYen).toLocaleString()}</strong></div>
                           <div><span>{copy.nearestMarket}</span><strong>{copy.walk} {property.lifestyle?.nearestSupermarketWalkMinutes ?? "—"} {copy.minutes}</strong></div>
                           <div><span>10 min area</span><strong>Market {property.lifestyle?.supermarketsWithin10Minutes ?? "—"} · Store {property.lifestyle?.convenienceStoresWithin10Minutes ?? "—"} · Food {property.lifestyle?.restaurantsWithin10Minutes ?? "—"}</strong></div>
+                          <div><span>{locale === "zh" ? "房源偏好 Demo" : locale === "ja" ? "物件希望 Demo" : "Preference demo"}</span><strong>{property.amenities?.petFriendly ? "Pet ✓" : "Pet —"} · {property.amenities?.bathToiletSeparate ? "Bath/WC ✓" : "Bath/WC —"}</strong></div>
+                          <div><span>{locale === "zh" ? "最近繁华区域" : locale === "ja" ? "最寄り主要エリア" : "Nearest major area"}</span><strong>{property.amenities?.nearestMajorArea ?? "—"} · {property.amenities?.majorAreaWalkMinutes ?? "—"} min</strong></div>
                           <p>{locale === "zh" ? "生活设施为确定性 Demo 数据；详细目标值与容忍度仅用于内部匹配。" : locale === "ja" ? "生活施設は決定的なDemoデータです。詳細な目標値と許容範囲は内部マッチだけに使用します。" : "Amenities are deterministic demo data. Detailed targets and tolerances are used only for internal matching."}</p>
                           {property.sourceUrl ? <a href={property.sourceUrl} target="_blank" rel="noreferrer">{locale === "zh" ? "查看原房源" : locale === "ja" ? "掲載元を見る" : "View source"} ↗</a> : <span className="demo-source">Demo property · no source link</span>}
                         </div>

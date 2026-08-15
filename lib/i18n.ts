@@ -1,4 +1,4 @@
-import type { FiveGridQuestionId, HbtiQuestionId, HousingPreferenceKey } from "./housing-scoring";
+import type { FiveGridQuestionId, HbtiQuestionId, HousingPreferenceKey, SpecificPreferenceKey } from "./housing-scoring";
 
 export type Locale = "zh" | "ja" | "en";
 
@@ -81,6 +81,51 @@ export const PREFERENCE_LABELS: Record<Locale, Record<HousingPreferenceKey, stri
   zh: { commute: "通勤", price: "价格", housing: "房屋", station: "车站", lifestyle: "生活" },
   ja: { commute: "通勤", price: "家賃", housing: "住まい", station: "駅近", lifestyle: "暮らし" },
   en: { commute: "Commute", price: "Price", housing: "Housing", station: "Station", lifestyle: "Lifestyle" },
+};
+
+export const SPECIFIC_PREFERENCE_COPY: Record<Locale, Record<SpecificPreferenceKey, { label: string; result: string }>> = {
+  zh: {
+    walk_5: { label: "🚉 车站步行5分钟内", result: "距车站步行不超过5分钟" },
+    layout_1k: { label: "🛏 我喜欢1K", result: "符合你偏好的1K户型" },
+    area_25: { label: "📐 至少25㎡", result: "房间面积达到25㎡以上" },
+    age_10: { label: "✨ 房龄10年以内", result: "建筑房龄在10年以内" },
+    zero_transfer: { label: "🚃 尽量不换乘", result: "到目的地不需要换乘" },
+    walkable_major_area: { label: "🏙 可步行到繁华区域", result: "可以步行到附近的主要生活区" },
+    pet_friendly: { label: "🐕 可以养宠物", result: "Demo条件标记为宠物友好" },
+    bath_toilet_separate: { label: "🛁 浴室厕所分离", result: "Demo条件包含浴厕分离" },
+    avoid_1r: { label: "✕ 不要1R", result: "这套房是你不喜欢的1R" },
+    avoid_old: { label: "✕ 不要老房子", result: "这套房建筑已超过20年" },
+    avoid_far_station: { label: "✕ 不要远离车站", result: "这套房到车站步行超过10分钟" },
+    avoid_transfer: { label: "✕ 不想换乘", result: "这条通勤路线需要换乘" },
+  },
+  ja: {
+    walk_5: { label: "🚉 駅徒歩5分以内", result: "駅まで徒歩5分以内" },
+    layout_1k: { label: "🛏 1Kが好き", result: "希望に合う1Kの間取り" },
+    area_25: { label: "📐 25㎡以上", result: "25㎡以上の広さ" },
+    age_10: { label: "✨ 築10年以内", result: "築10年以内" },
+    zero_transfer: { label: "🚃 乗換なし", result: "目的地まで乗換なし" },
+    walkable_major_area: { label: "🏙 繁華街まで歩ける", result: "主要な生活エリアまで徒歩圏" },
+    pet_friendly: { label: "🐕 ペット可", result: "Demo条件でペット可" },
+    bath_toilet_separate: { label: "🛁 バス・トイレ別", result: "Demo条件でバス・トイレ別" },
+    avoid_1r: { label: "✕ 1Rは避けたい", result: "希望しない1Rの間取り" },
+    avoid_old: { label: "✕ 古い物件は避けたい", result: "築20年以上" },
+    avoid_far_station: { label: "✕ 駅徒歩10分超は避けたい", result: "駅まで徒歩10分超" },
+    avoid_transfer: { label: "✕ 乗換は避けたい", result: "通勤に乗換が必要" },
+  },
+  en: {
+    walk_5: { label: "🚉 Station within 5 min", result: "No more than a 5-minute station walk" },
+    layout_1k: { label: "🛏 Prefer 1K", result: "Your preferred 1K layout" },
+    area_25: { label: "📐 At least 25㎡", result: "At least 25㎡ of space" },
+    age_10: { label: "✨ Up to 10 years old", result: "Built within the last 10 years" },
+    zero_transfer: { label: "🚃 No transfers", result: "A no-transfer commute" },
+    walkable_major_area: { label: "🏙 Walk to a lively area", result: "Walking distance to a major lifestyle area" },
+    pet_friendly: { label: "🐕 Pet friendly", result: "Marked pet friendly in demo data" },
+    bath_toilet_separate: { label: "🛁 Separate bath & toilet", result: "Separate bath and toilet in demo data" },
+    avoid_1r: { label: "✕ Avoid 1R", result: "This is a 1R layout you want to avoid" },
+    avoid_old: { label: "✕ Avoid older homes", result: "This home is at least 20 years old" },
+    avoid_far_station: { label: "✕ Avoid long station walks", result: "The station walk exceeds 10 minutes" },
+    avoid_transfer: { label: "✕ Avoid transfers", result: "This commute requires a transfer" },
+  },
 };
 
 export const QUESTION_COPY: Record<Locale, Record<FiveGridQuestionId, { question: string; left: string; right: string }>> = {

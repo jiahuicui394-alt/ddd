@@ -58,6 +58,14 @@ for (const property of result.properties) {
     || property.lifestyle.restaurantsWithin10Minutes == null) {
     throw new Error(`Lifestyle demo metrics are incomplete for ${property.id}.`);
   }
+  if (!property.amenities
+    || property.amenities.dataSource !== "generated_mock"
+    || property.amenities.nearestMajorArea == null
+    || property.amenities.majorAreaWalkMinutes == null
+    || typeof property.amenities.petFriendly !== "boolean"
+    || typeof property.amenities.bathToiletSeparate !== "boolean") {
+    throw new Error(`Specific preference demo fields are incomplete for ${property.id}.`);
+  }
 }
 
 if (HBTI_QUESTIONS.length !== 20) throw new Error("HBTI must contain exactly 20 questions.");
@@ -98,6 +106,24 @@ if (combinedProfile.weights.housing <= combinedProfile.weights.station
     combinedProfile.weights[key as keyof typeof combinedProfile.weights]
       === profile.weights[key as keyof typeof profile.weights])) {
   throw new Error("Priority + HBTI + swipe inputs were not combined.");
+}
+
+const specificProfile = deriveHbtiProfile(
+  answers,
+  HOUSING_CALIBRATION_PROPERTIES,
+  ["commute", "price", "housing", "lifestyle", "station"],
+  [],
+  {
+    rewards: ["walk_5", "layout_1k", "area_25"],
+    penalties: ["avoid_1r", "avoid_old", "avoid_far_station"],
+  },
+);
+const specificScored = scoreProperties(HOUSING_CALIBRATION_PROPERTIES, [], specificProfile);
+if (specificProfile.specificPreferences.rewards.length !== 3
+  || specificProfile.specificPreferences.penalties.length !== 3
+  || !specificScored.some((property) => property.specificPreferenceMatches.length > 0)
+  || !specificScored.some((property) => property.specificPreferenceConflicts.length > 0)) {
+  throw new Error("Specific preference rewards and penalties were not applied.");
 }
 
 const customized = applyHbtiPriorityOrder(profile, ["commute", "housing", "price", "lifestyle", "station"]);
@@ -200,6 +226,7 @@ console.log(JSON.stringify({
     "destination-station-refilter",
     "hbti-20-questions-five-per-page-model",
     "priority-hbti-swipe-combined-blackbox-profile",
+    "specific-preference-hidden-reward-and-penalty",
     "drag-priority-35-25-18-13-9",
     "global-ranking-all-qualifying-properties",
     "station-click-property-subset",
@@ -209,6 +236,7 @@ console.log(JSON.stringify({
     "layout-preference",
     "five-internal-scores-0-100",
     "deterministic-lifestyle-demo-data",
+    "deterministic-specific-preference-demo-data",
     "three-ranking-modes",
     "public-hbti-result-and-why-matched-data",
   ],

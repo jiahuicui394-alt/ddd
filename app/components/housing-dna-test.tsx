@@ -14,11 +14,14 @@ import type {
   HbtiAnswers,
   HbtiQuestionId,
   HousingPreferenceKey,
+  PenaltyPreferenceKey,
   PreferenceProfile,
+  RewardPreferenceKey,
+  SpecificPreferences,
   SwipeFeedback,
   SwipeReaction,
 } from "@/lib/housing-scoring";
-import { HBTI_QUESTION_COPY, PREFERENCE_LABELS, type Locale } from "@/lib/i18n";
+import { HBTI_QUESTION_COPY, PREFERENCE_LABELS, SPECIFIC_PREFERENCE_COPY, type Locale } from "@/lib/i18n";
 
 type Props = {
   locale: Locale;
@@ -32,6 +35,10 @@ type TestStage = "priority" | "hbti" | "swipe" | "result";
 const QUESTIONS_PER_PAGE = 5;
 const SCALE_VALUES: FiveGridValue[] = [-2, -1, 0, 1, 2];
 const SWIPE_THRESHOLD = 64;
+const REWARD_PREFERENCE_KEYS: RewardPreferenceKey[] = [
+  "walk_5", "layout_1k", "area_25", "age_10", "zero_transfer", "walkable_major_area", "pet_friendly", "bath_toilet_separate",
+];
+const PENALTY_PREFERENCE_KEYS: PenaltyPreferenceKey[] = ["avoid_1r", "avoid_old", "avoid_far_station", "avoid_transfer"];
 
 const TEXT = {
   zh: {
@@ -40,6 +47,10 @@ const TEXT = {
     steps: ["初步排序", "HBTI", "房源 Swipe", "人格结果"],
     priorityTitle: "先排出你最在意的居住条件",
     priorityHint: "按住 ☰ 上下拖动。这一步只建立初始配比，后续回答会继续校准。",
+    specificsTitle: "加入你的具体偏好",
+    specificsHint: "选真正会影响决定的条件。命中会获得奖励，踩中避雷项会降低匹配；具体数值保持黑箱。",
+    rewardsTitle: "我特别想要的",
+    penaltiesTitle: "我不想妥协的",
     priorityNext: "下一步：HBTI →",
     question: "题目", answered: "已回答", page: "页", of: "/",
     disagree: "非常不同意", neutral: "中立", agree: "非常同意",
@@ -79,6 +90,10 @@ const TEXT = {
     steps: ["優先順位", "HBTI", "物件 Swipe", "タイプ結果"],
     priorityTitle: "住まい選びの優先順位を並べてください",
     priorityHint: "☰ を押したまま上下にドラッグ。ここで初期バランスを作り、後の回答で調整します。",
+    specificsTitle: "具体的な希望を追加",
+    specificsHint: "本当に判断に影響する条件を選択。合致は加点、避けたい条件は減点され、配点は非公開です。",
+    rewardsTitle: "特に欲しい条件",
+    penaltiesTitle: "避けたい条件",
     priorityNext: "次へ：HBTI →",
     question: "質問", answered: "回答済み", page: "ページ", of: "/",
     disagree: "まったく同意しない", neutral: "中立", agree: "とても同意する",
@@ -118,6 +133,10 @@ const TEXT = {
     steps: ["Priorities", "HBTI", "Home Swipe", "Your Type"],
     priorityTitle: "Rank what matters most in your home search",
     priorityHint: "Hold ☰ and drag vertically. This creates the starting balance; later answers keep calibrating it.",
+    specificsTitle: "Add your specific preferences",
+    specificsHint: "Choose what truly affects your decision. Matches earn a hidden reward and deal-breakers receive a hidden penalty.",
+    rewardsTitle: "I really want",
+    penaltiesTitle: "I want to avoid",
     priorityNext: "Next: HBTI →",
     question: "Question", answered: "answered", page: "Page", of: "/",
     disagree: "Strongly disagree", neutral: "Neutral", agree: "Strongly agree",
@@ -194,6 +213,7 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
   const [answeredIds, setAnsweredIds] = useState<Set<HbtiQuestionId>>(() => new Set());
   const [profile, setProfile] = useState<PreferenceProfile | null>(null);
   const [priorityOrder, setPriorityOrder] = useState<HousingPreferenceKey[]>([...DEFAULT_HOUSING_DNA_ORDER]);
+  const [specificPreferences, setSpecificPreferences] = useState<SpecificPreferences>({ rewards: [], penalties: [] });
   const [priorityDragIndex, setPriorityDragIndex] = useState<number | null>(null);
   const [swipeIndex, setSwipeIndex] = useState(0);
   const [swipeFeedback, setSwipeFeedback] = useState<SwipeFeedback[]>([]);
@@ -250,6 +270,7 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
       HOUSING_CALIBRATION_PROPERTIES,
       priorityOrder,
       nextFeedback,
+      specificPreferences,
     );
     setProfile(nextProfile);
     setStage("result");
@@ -263,6 +284,7 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
     setAnsweredIds(new Set());
     setProfile(null);
     setPriorityOrder([...DEFAULT_HOUSING_DNA_ORDER]);
+    setSpecificPreferences({ rewards: [], penalties: [] });
     setPriorityDragIndex(null);
     setSwipeIndex(0);
     setSwipeFeedback([]);
@@ -335,6 +357,48 @@ export default function HousingDnaTest({ locale, hasSearchResults, onComplete, o
                 <em>{index === 0 ? "TOP" : `#${index + 1}`}</em>
               </div>
             ))}
+          </div>
+          <div className="specific-preferences">
+            <div className="specific-preferences-heading">
+              <strong>{text.specificsTitle}</strong>
+              <small>{text.specificsHint}</small>
+            </div>
+            <div className="specific-preference-group">
+              <b>{text.rewardsTitle}</b>
+              <div className="specific-preference-buttons">
+                {REWARD_PREFERENCE_KEYS.map((key) => {
+                  const selected = specificPreferences.rewards.includes(key);
+                  return <button
+                    type="button"
+                    aria-pressed={selected}
+                    className={selected ? "selected reward" : ""}
+                    onClick={() => setSpecificPreferences((current) => ({
+                      ...current,
+                      rewards: selected ? current.rewards.filter((item) => item !== key) : [...current.rewards, key],
+                    }))}
+                    key={key}
+                  >{SPECIFIC_PREFERENCE_COPY[locale][key].label}</button>;
+                })}
+              </div>
+            </div>
+            <div className="specific-preference-group penalty">
+              <b>{text.penaltiesTitle}</b>
+              <div className="specific-preference-buttons">
+                {PENALTY_PREFERENCE_KEYS.map((key) => {
+                  const selected = specificPreferences.penalties.includes(key);
+                  return <button
+                    type="button"
+                    aria-pressed={selected}
+                    className={selected ? "selected penalty" : ""}
+                    onClick={() => setSpecificPreferences((current) => ({
+                      ...current,
+                      penalties: selected ? current.penalties.filter((item) => item !== key) : [...current.penalties, key],
+                    }))}
+                    key={key}
+                  >{SPECIFIC_PREFERENCE_COPY[locale][key].label}</button>;
+                })}
+              </div>
+            </div>
           </div>
           <div className="dna-actions"><span /><button type="button" className="apply-dna" onClick={() => setStage("hbti")}>{text.priorityNext}</button></div>
         </div>

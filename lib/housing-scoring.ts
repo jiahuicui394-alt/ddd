@@ -16,6 +16,16 @@ export type HbtiQuestionId =
 export type HbtiAnswers = Record<HbtiQuestionId, FiveGridValue>;
 export type SwipeReaction = -1 | 0 | 1 | 2;
 export type SwipeFeedback = { propertyId: string; reaction: SwipeReaction; reasons: string[] };
+export type RewardPreferenceKey =
+  | "walk_5" | "layout_1k" | "area_25" | "age_10"
+  | "zero_transfer" | "walkable_major_area" | "pet_friendly" | "bath_toilet_separate";
+export type PenaltyPreferenceKey =
+  | "avoid_1r" | "avoid_old" | "avoid_far_station" | "avoid_transfer";
+export type SpecificPreferenceKey = RewardPreferenceKey | PenaltyPreferenceKey;
+export type SpecificPreferences = {
+  rewards: RewardPreferenceKey[];
+  penalties: PenaltyPreferenceKey[];
+};
 
 export type RecommendationReason = { tone: "strong" | "balanced"; text: string };
 export type PreferenceProfile = {
@@ -36,6 +46,7 @@ export type PreferenceProfile = {
   };
   transferPenaltyMinutes: number;
   layoutPreference: string[];
+  specificPreferences: SpecificPreferences;
   roomDnaName: string;
   roomDnaDescription: string;
 };
@@ -46,6 +57,8 @@ export type ScoredProperty = PropertyMatch & {
   valueScore: number;
   transferCount: number;
   recommendationReasons: RecommendationReason[];
+  specificPreferenceMatches: RewardPreferenceKey[];
+  specificPreferenceConflicts: PenaltyPreferenceKey[];
 };
 
 export const HOUSING_DNA_ITEMS: Array<{
@@ -61,6 +74,7 @@ export const HOUSING_DNA_ITEMS: Array<{
   { key: "lifestyle", label: "周边生活 Lifestyle", shortLabel: "生活", icon: "🛒" },
 ];
 export const DEFAULT_HOUSING_DNA_ORDER: HousingPreferenceKey[] = ["commute", "price", "housing", "lifestyle", "station"];
+export const EMPTY_SPECIFIC_PREFERENCES: SpecificPreferences = { rewards: [], penalties: [] };
 
 /**
  * Fixed, explainable HBTI scoring directions. A positive answer applies the
@@ -249,6 +263,7 @@ export function derivePreferenceProfile(
     },
     transferPenaltyMinutes: 4 + (answers.time_transfer + 2) * 2,
     layoutPreference,
+    specificPreferences: { rewards: [], penalties: [] },
     roomDnaName,
     roomDnaDescription: `你会优先寻找${primaryLabel}表现稳定、同时兼顾${secondaryLabel}的房源，偏好 ${layoutPreference[0]}，并愿意在次要条件上做适度取舍。`,
   };
@@ -272,6 +287,7 @@ export function deriveHbtiProfile(
   properties: PropertyMatch[],
   order: HousingPreferenceKey[] = DEFAULT_HOUSING_DNA_ORDER,
   feedback: SwipeFeedback[] = [],
+  specificPreferences: SpecificPreferences = EMPTY_SPECIFIC_PREFERENCES,
 ): PreferenceProfile {
   const baseProfile = derivePreferenceProfile(
     order,
@@ -323,6 +339,10 @@ export function deriveHbtiProfile(
     ...baseProfile,
     weights,
     layoutPreference,
+    specificPreferences: {
+      rewards: [...new Set(specificPreferences.rewards)],
+      penalties: [...new Set(specificPreferences.penalties)],
+    },
     transferPenaltyMinutes: clamp(6 + transferPreference * 2, 2, 10),
     roomDnaName: typeName,
     roomDnaDescription: "Your answers create a deterministic five-dimension housing preference profile.",
@@ -371,6 +391,41 @@ function reasonFor(key: HousingPreferenceKey, score: number, property: PropertyM
   return { tone: strong ? "strong" : "balanced", text: strong ? messages[key][0] : messages[key][1] };
 }
 
+const REWARD_POINTS: Record<RewardPreferenceKey, number> = {
+  walk_5: 7,
+  layout_1k: 7,
+  area_25: 5,
+  age_10: 5,
+  zero_transfer: 6,
+  walkable_major_area: 7,
+  pet_friendly: 8,
+  bath_toilet_separate: 5,
+};
+const PENALTY_POINTS: Record<PenaltyPreferenceKey, number> = {
+  avoid_1r: 12,
+  avoid_old: 10,
+  avoid_far_station: 12,
+  avoid_transfer: 9,
+};
+
+function rewardMatches(property: PropertyMatch, transferCount: number, key: RewardPreferenceKey) {
+  if (key === "walk_5") return property.station.walkingMinutes <= 5;
+  if (key === "layout_1k") return property.layout === "1K";
+  if (key === "area_25") return property.areaSqm >= 25;
+  if (key === "age_10") return property.buildingAgeYears <= 10;
+  if (key === "zero_transfer") return transferCount === 0;
+  if (key === "walkable_major_area") return (property.amenities?.majorAreaWalkMinutes ?? Number.POSITIVE_INFINITY) <= 15;
+  if (key === "pet_friendly") return property.amenities?.petFriendly === true;
+  return property.amenities?.bathToiletSeparate === true;
+}
+
+function penaltyTriggered(property: PropertyMatch, transferCount: number, key: PenaltyPreferenceKey) {
+  if (key === "avoid_1r") return property.layout === "1R";
+  if (key === "avoid_old") return property.buildingAgeYears >= 20;
+  if (key === "avoid_far_station") return property.station.walkingMinutes > 10;
+  return transferCount > 0;
+}
+
 export function scoreProperties(properties: PropertyMatch[], stations: ReachableStation[], profile: PreferenceProfile): ScoredProperty[] {
   const stationByKey = new Map(stations.map((station) => [station.id, station]));
   return properties.map((property) => {
@@ -390,14 +445,29 @@ export function scoreProperties(properties: PropertyMatch[], stations: Reachable
       station: lowerTargetScore(property.station.walkingMinutes, profile.targets.stationWalkMinutes, profile.tolerances.stationWalkMinutes),
       lifestyle: lifestyleScore(property),
     };
-    const finalScore = roundScore(Object.entries(scores).reduce(
+    const baseScore = Object.entries(scores).reduce(
       (sum, [key, score]) => sum + score * profile.weights[key as HousingPreferenceKey], 0,
-    ));
+    );
+    const specificPreferences = profile.specificPreferences ?? EMPTY_SPECIFIC_PREFERENCES;
+    const specificPreferenceMatches = specificPreferences.rewards.filter((key) => rewardMatches(property, transferCount, key));
+    const specificPreferenceConflicts = specificPreferences.penalties.filter((key) => penaltyTriggered(property, transferCount, key));
+    const reward = Math.min(22, specificPreferenceMatches.reduce((sum, key) => sum + REWARD_POINTS[key], 0));
+    const penalty = Math.min(28, specificPreferenceConflicts.reduce((sum, key) => sum + PENALTY_POINTS[key], 0));
+    const finalScore = roundScore(baseScore + reward - penalty);
     const valueScore = roundScore(scores.price * 0.4 + scores.housing * 0.3 + scores.commute * 0.15 + scores.station * 0.1 + scores.lifestyle * 0.05);
     const recommendationReasons = (Object.keys(profile.weights) as HousingPreferenceKey[])
       .sort((left, right) => profile.weights[right] - profile.weights[left]).slice(0, 2)
       .map((key) => reasonFor(key, scores[key], property));
-    return { ...property, scores, finalScore, valueScore, transferCount, recommendationReasons };
+    return {
+      ...property,
+      scores,
+      finalScore,
+      valueScore,
+      transferCount,
+      recommendationReasons,
+      specificPreferenceMatches,
+      specificPreferenceConflicts,
+    };
   });
 }
 
